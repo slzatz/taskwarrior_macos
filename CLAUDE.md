@@ -46,6 +46,9 @@ after modifications or when the window geometry changes. Views are thin.
   and is treated as an operation (log + refresh).
 - Rules for what refreshes live only in `DisplayPolicy.swift`; keep new behaviour there.
 - Command output for listings goes to the status line, not the log, so refreshes stay quiet.
+- All display colour comes from the user's theme via `rc._forcecolor=on`; the app adds none of its own.
+  `dark-256.theme` only colours state (due/overdue/active/recurring/blocked), so a list of plain
+  tasks is legitimately monochrome. "No colours" is a `.taskrc` question, not an app bug.
 
 ## Conventions
 

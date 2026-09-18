@@ -9,6 +9,8 @@ working on the code.
 
 - `make debug` – fast build of `build/Taskwarrior.app`; `make` for release; `make run` opens it.
 - `make test` – unit tests for `TaskwarriorCore` (parsing, policy, ANSI). Keep them green.
+  Needs Xcode: XCTest ships only with Xcode, so this target cannot run at all on a
+  Command Line Tools install (`unable to resolve module dependency: 'XCTest'`).
 - Verify UI changes visually with a scripted run (no clicking, no screen-recording permission needed):
   ```sh
   TASKDATA=/tmp/tw-scratch TASKWARRIOR_APP_SCRIPT="add project:work x;;1 done;;next" \
@@ -45,6 +47,12 @@ after modifications or when the window geometry changes. Views are thin.
 - `edit` and `execute` need a tty and are refused. `task sync` is `synchronize` (category migration)
   and is treated as an operation (log + refresh).
 - Rules for what refreshes live only in `DisplayPolicy.swift`; keep new behaviour there.
+- SwiftUI's `@State` is a macro in the macOS 27 SDK and only Xcode's toolchain ships the
+  `SwiftUIMacros` plugin that expands it, so a Command Line Tools install cannot build the app
+  against that SDK at all. `Scripts/swiftui-sdk.sh` probes for the newest SDK that typechecks a
+  trivial SwiftUI view and the Makefile exports it as `SDKROOT`, printing a one-line note when it
+  does. The probe is deliberately uncached so it goes dormant as soon as Xcode is installed; an
+  `SDKROOT` already set in the environment skips it. Installing Xcode is the real fix.
 - Command output for listings goes to the status line, not the log, so refreshes stay quiet.
 - All display colour comes from the user's theme via `rc._forcecolor=on`; the app adds none of its own.
   `dark-256.theme` only colours state (due/overdue/active/recurring/blocked), so a list of plain

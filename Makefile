@@ -37,6 +37,7 @@ app: build
 	mkdir -p "$(CONTENTS)/MacOS" "$(CONTENTS)/Resources"
 	cp "$(BINARY)" "$(CONTENTS)/MacOS/$(APP_NAME)"
 	cp Resources/Info.plist "$(CONTENTS)/Info.plist"
+	cp Resources/AppIcon.icns "$(CONTENTS)/Resources/AppIcon.icns"
 	printf 'APPL????' > "$(CONTENTS)/PkgInfo"
 	codesign --force --sign - "$(BUNDLE)" >/dev/null 2>&1 || true
 	@echo "Built $(BUNDLE)"

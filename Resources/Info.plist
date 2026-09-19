@@ -6,6 +6,8 @@
     <string>en</string>
     <key>CFBundleExecutable</key>
     <string>Taskwarrior</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
     <key>CFBundleIdentifier</key>
     <string>com.szatz.taskwarrior-macos</string>
     <key>CFBundleInfoDictionaryVersion</key>

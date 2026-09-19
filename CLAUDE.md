@@ -57,6 +57,19 @@ after modifications or when the window geometry changes. Views are thin.
 - All display colour comes from the user's theme via `rc._forcecolor=on`; the app adds none of its own.
   `dark-256.theme` only colours state (due/overdue/active/recurring/blocked), so a list of plain
   tasks is legitimately monochrome. "No colours" is a `.taskrc` question, not an app bug.
+- The app icon is a committed `Resources/AppIcon.icns` that `make app` copies in (before the
+  `codesign` line, which seals `Contents/Resources`) plus `CFBundleIconFile` in the checked-in
+  plist. `Scripts/make-icon.swift` draws it and is run **by hand**, not by the Makefile.
+  It is a deliberate twin of `~/vimango_hybrid/scripts/make-icon.swift` — same tile grid and
+  corner treatment, differing only in letter and hue — so the two apps read as a pair in the
+  Dock; a change to the tile style belongs in both copies. Two traps: `CALayer.render(in:)`
+  ignores the layer's frame origin and draws at the context origin (translate the context
+  instead), and inspecting the result by running `iconutil -c iconset` *backwards* on the
+  `.icns` unpremultiplies with clipping, so edges come back blown out and the art looks like
+  it has a fringe it does not have — read the PNGs the script writes instead.
+- **A new icon will not show in the Dock until its cache is cleared.** `lsregister -f` does not
+  do it, and neither does quitting and relaunching the app. Delete
+  `com.apple.dock.iconcache` under `/private/var/folders/…/C/` and `killall Dock`.
 
 ## Conventions
 

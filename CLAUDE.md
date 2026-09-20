@@ -40,6 +40,13 @@ after modifications or when the window geometry changes. Views are thin.
 - `task _show` reports the *effective* config: never query it with overrides you don't want read back.
 - Reports with `limit:page` (the user's `next`) size themselves from `rc.defaultheight`; without it
   the app shows only ~20 rows. Column fit comes from `rc.defaultwidth` computed from the text view.
+- No shell is ever involved in running a command. `ShellTokenizer` splits the typed line,
+  `ParsedCommand.parse` drops a leading `task` word, and `TaskRunner` passes the tokens as argv
+  to the binary via `Process`. So quoting works but globs, `$VAR`, pipes and redirection do not,
+  and nothing but `task` can be run. (`displayString` re-adds the `task ` prefix for confirmations
+  and the log only.) The single shell invocation in the codebase is `TaskRunner.locate`'s
+  `zsh -lc "command -v task"` fallback, used to find the binary because a Finder-launched app
+  gets a minimal `PATH`.
 - An ambiguous abbreviation (`ne`) is a filter word to taskwarrior, not a command; the parser
   returns `command == nil` and the default command runs. Do not "fix" this.
 - Taskwarrior's default colour theme assumes a black terminal (row shading is colour 234), so the

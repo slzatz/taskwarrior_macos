@@ -31,6 +31,12 @@ add Buy milk due:tomorrow
 sync
 ```
 
+The line is not run through a shell. A leading `task` is stripped, the rest is
+split into arguments (honouring quotes, so `add "Buy milk" due:tomorrow` is three
+arguments) and handed straight to the `task` binary. Globs, `$VARIABLES`, pipes,
+`&&` and redirection are therefore passed to taskwarrior verbatim rather than
+expanded, and no other program can be run from the field.
+
 - **Up / Down** walk the command history (kept between launches). **Esc** clears the field.
 - **⌘=** / **⌘-** / **⌘0** change the font size; the report is re-run so columns fit the window.
 - **⌘R** re-runs the current listing, **⌘L** focuses the command field,

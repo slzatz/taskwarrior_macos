@@ -134,13 +134,14 @@ private struct TaskRow: View {
                             .foregroundStyle(.secondary)
                             .help("Recurring")
                     }
-                    if !task.annotations.isEmpty {
-                        Label("\(task.annotations.count)", systemImage: "text.bubble")
-                            .font(.system(size: fontSize - 2))
-                            .foregroundStyle(.secondary)
-                            .help(task.annotations.map(\.description).joined(separator: "\n"))
-                    }
                     Spacer(minLength: 0)
+                    if task.hasVimangoNote {
+                        // Same symbol and accent (indigo) as taskchamp's note button.
+                        Image(systemName: "doc.text")
+                            .font(.system(size: fontSize - 2))
+                            .foregroundStyle(.indigo)
+                            .help("Has a vimango note")
+                    }
                 }
                 if hasDetails {
                     HStack(spacing: 6) {

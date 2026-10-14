@@ -33,6 +33,9 @@ public struct TaskItem: Decodable, Sendable, Identifiable, Equatable {
     public var isCompleted: Bool { status == "completed" }
     public var isDeleted: Bool { status == "deleted" }
     public var isPending: Bool { status == "pending" || status == "waiting" }
+    /// vimango links a note to a task by annotating it with exactly this text (as taskchamp checks).
+    public static let vimangoNoteAnnotation = "vimango"
+    public var hasVimangoNote: Bool { annotations.contains { $0.description == Self.vimangoNoteAnnotation } }
 
     public func isOverdue(now: Date = Date()) -> Bool {
         guard let due, isPending else { return false }

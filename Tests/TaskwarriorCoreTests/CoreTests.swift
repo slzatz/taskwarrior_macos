@@ -134,6 +134,7 @@ final class TaskItemTests: XCTestCase {
         XCTAssertEqual(first.priority, "H")
         XCTAssertEqual(first.tags, ["phone"])
         XCTAssertEqual(first.annotations.map(\.description), ["note"])
+        XCTAssertFalse(first.hasVimangoNote)
         XCTAssertTrue(first.isActive)
         XCTAssertEqual(first.due, TaskItem.parseDate("20261012T040000Z"))
         XCTAssertTrue(first.isOverdue(now: TaskItem.parseDate("20261012T050000Z")!))
@@ -145,6 +146,11 @@ final class TaskItemTests: XCTestCase {
         XCTAssertTrue(second.isRecurring)
         XCTAssertEqual(second.depends.count, 1)
         XCTAssertNil(second.due)
+    }
+
+    func testVimangoNote() throws {
+        let json = #"[{"uuid":"598b5414-e410-49f4-8376-014443da82b2","description":"x","annotations":[{"entry":"20261012T090306Z","description":"called"},{"entry":"20261012T090307Z","description":"vimango"}]}]"#
+        XCTAssertTrue(try TaskItem.decodeExport(json)[0].hasVimangoNote)
     }
 
     func testParseDate() {

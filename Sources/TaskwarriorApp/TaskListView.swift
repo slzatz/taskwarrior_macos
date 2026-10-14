@@ -22,7 +22,7 @@ struct TaskListView: View {
             ScrollViewReader { proxy in
                 List(selection: $selection) {
                     ForEach(tasks) { task in
-                        TaskRow(task: task, fontSize: fontSize) { model.perform("done", on: task) }
+                        TaskRow(task: task, fontSize: fontSize)
                             .tag(task.uuid)
                             .id(task.uuid)
                     }
@@ -99,74 +99,62 @@ struct TaskListView: View {
 private struct TaskRow: View {
     let task: TaskItem
     let fontSize: Double
-    let markDone: () -> Void
 
     private var hasDetails: Bool {
         task.project != nil || task.priority != nil || !task.tags.isEmpty || task.due != nil
     }
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 10) {
-            Button(action: markDone) {
-                Image(systemName: task.isCompleted ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: fontSize + 3))
-                    .foregroundStyle(task.isCompleted ? AnyShapeStyle(.green) : AnyShapeStyle(.secondary))
-            }
-            .buttonStyle(.plain)
-            .disabled(!task.isPending)
-            .help("Mark done")
-
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Text(task.description)
-                        .font(.system(size: fontSize + 1))
-                        .lineLimit(2)
-                        .strikethrough(task.isDeleted, color: .red)
-                    if task.isActive {
-                        Image(systemName: "play.fill")
-                            .font(.system(size: fontSize - 2))
-                            .foregroundStyle(.tint)
-                            .help("Active")
-                    }
-                    if task.isRecurring {
-                        Image(systemName: "arrow.triangle.2.circlepath")
-                            .font(.system(size: fontSize - 2))
-                            .foregroundStyle(.secondary)
-                            .help("Recurring")
-                    }
-                    Spacer(minLength: 0)
-                    if task.hasVimangoNote {
-                        // Same symbol and accent (indigo) as taskchamp's note button.
-                        Image(systemName: "doc.text")
-                            .font(.system(size: fontSize - 2))
-                            .foregroundStyle(.indigo)
-                            .help("Has a vimango note")
-                    }
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text(task.description)
+                    .font(.system(size: fontSize + 1))
+                    .lineLimit(2)
+                    .strikethrough(task.isDeleted, color: .red)
+                if task.isActive {
+                    Image(systemName: "play.fill")
+                        .font(.system(size: fontSize - 2))
+                        .foregroundStyle(.tint)
+                        .help("Active")
                 }
-                if hasDetails {
-                    HStack(spacing: 6) {
-                        if let project = task.project {
-                            Badge(text: project, color: .blue, fontSize: fontSize)
-                        }
-                        if let priority = task.priority, let color = priorityColor(priority) {
-                            Badge(text: priority, color: color, fontSize: fontSize, tintedText: true)
-                        }
-                        ForEach(task.tags, id: \.self) { tag in
-                            Badge(text: tag, color: .green, fontSize: fontSize)
-                        }
-                        Spacer()
-                        if let due = task.due {
-                            Text(DueText.format(due))
-                                .font(.system(size: fontSize - 2))
-                                .foregroundStyle(dueColor(due))
-                        }
-                    }
-                    .lineLimit(1)
+                if task.isRecurring {
+                    Image(systemName: "arrow.triangle.2.circlepath")
+                        .font(.system(size: fontSize - 2))
+                        .foregroundStyle(.secondary)
+                        .help("Recurring")
+                }
+                Spacer(minLength: 0)
+                if task.hasVimangoNote {
+                    // Same symbol and accent (indigo) as taskchamp's note button.
+                    Image(systemName: "doc.text")
+                        .font(.system(size: fontSize - 2))
+                        .foregroundStyle(.indigo)
+                        .help("Has a vimango note")
                 }
             }
-            // Separators start under the text on every row, not wherever SwiftUI guesses.
-            .alignmentGuide(.listRowSeparatorLeading) { $0[.leading] }
+            if hasDetails {
+                HStack(spacing: 6) {
+                    if let project = task.project {
+                        Badge(text: project, color: .blue, fontSize: fontSize)
+                    }
+                    if let priority = task.priority, let color = priorityColor(priority) {
+                        Badge(text: priority, color: color, fontSize: fontSize, tintedText: true)
+                    }
+                    ForEach(task.tags, id: \.self) { tag in
+                        Badge(text: tag, color: .green, fontSize: fontSize)
+                    }
+                    Spacer()
+                    if let due = task.due {
+                        Text(DueText.format(due))
+                            .font(.system(size: fontSize - 2))
+                            .foregroundStyle(dueColor(due))
+                    }
+                }
+                .lineLimit(1)
+            }
         }
+        // Separators start under the text on every row, not wherever SwiftUI guesses.
+        .alignmentGuide(.listRowSeparatorLeading) { $0[.leading] }
         .padding(.vertical, 4)
         .opacity(task.isCompleted || task.isDeleted ? 0.45 : 1)
     }

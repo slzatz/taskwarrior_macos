@@ -101,9 +101,9 @@ after modifications or when the window geometry changes. Views are thin.
 
 Stage 2 is the structured view; the rest are candidates in rough priority order.
 
-1. **Structured list view (started)** – `TaskListView` draws taskchamp-style rows with a done
-   checkbox and context menu; List/Raw toggle (⌘1/⌘2). Next: detail pane, grouping by
-   project/due bucket, and scheduled/wait hints on the row.
+1. **Structured list view (started)** – `TaskListView` draws taskchamp-style rows with a context
+   menu; List/Raw toggle (⌘1/⌘2). The done checkbox was removed on trial (Space and the menu
+   still mark done). Next: detail pane, grouping by project/due bucket, scheduled/wait hints.
 2. **Auto-sync** – debounced `task sync` a few seconds after any modification, plus periodic pull
    (e.g. every 10 min and on app activation); spinner and last-sync time in the status line;
    failures surface once, not on every retry.

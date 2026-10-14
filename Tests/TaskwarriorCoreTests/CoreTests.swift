@@ -116,3 +116,73 @@ final class ANSIParserTests: XCTestCase {
         XCTAssertFalse(TaskEnvironment.verboseOverride(from: "on").contains("override"))
     }
 }
+
+final class TaskItemTests: XCTestCase {
+    let sample = """
+    [
+    {"id":3,"description":"Call the office","due":"20261012T040000Z","entry":"20261012T090255Z","modified":"20261012T090306Z","priority":"H","project":"work","status":"pending","uuid":"598b5414-e410-49f4-8376-014443da82b2","annotations":[{"entry":"20261012T090306Z","description":"note"}],"tags":["phone"],"start":"20261013T080000Z","urgency":17.6462},
+    {"id":0,"description":"Old thing","end":"20261001T000000Z","entry":"20260901T000000Z","status":"completed","uuid":"d8082a49-32b7-4fe7-bbe4-a9aa8ff3eed6","depends":["598b5414-e410-49f4-8376-014443da82b2"],"recur":"weekly","urgency":0,"myuda":"x"}
+    ]
+    """
+
+    func testDecodeExport() throws {
+        let items = try TaskItem.decodeExport(sample)
+        XCTAssertEqual(items.count, 2)
+        let first = items[0]
+        XCTAssertEqual(first.number, 3)
+        XCTAssertEqual(first.project, "work")
+        XCTAssertEqual(first.priority, "H")
+        XCTAssertEqual(first.tags, ["phone"])
+        XCTAssertEqual(first.annotations.map(\.description), ["note"])
+        XCTAssertTrue(first.isActive)
+        XCTAssertEqual(first.due, TaskItem.parseDate("20261012T040000Z"))
+        XCTAssertTrue(first.isOverdue(now: TaskItem.parseDate("20261012T050000Z")!))
+        XCTAssertFalse(first.isOverdue(now: TaskItem.parseDate("20261012T030000Z")!))
+
+        let second = items[1]
+        XCTAssertTrue(second.isCompleted)
+        XCTAssertFalse(second.isActive)
+        XCTAssertTrue(second.isRecurring)
+        XCTAssertEqual(second.depends.count, 1)
+        XCTAssertNil(second.due)
+    }
+
+    func testParseDate() {
+        let date = TaskItem.parseDate("20261012T040506Z")
+        XCTAssertEqual(date?.timeIntervalSince1970, 1_791_777_906)
+        XCTAssertNil(TaskItem.parseDate("2026-10-12"))
+        XCTAssertNil(TaskItem.parseDate("20261012X040506Z"))
+    }
+}
+
+final class ReportQueryTests: XCTestCase {
+    let catalog = CommandCatalog.fallback
+    let config = ["report.next.columns": "id,description", "report.list.columns": "id,description"]
+
+    private func report(_ line: String) -> String? {
+        ReportQuery.listableReport(for: ParsedCommand.parse(line, catalog: catalog), catalog: catalog, config: config)
+    }
+
+    func testListableReports() {
+        XCTAssertEqual(report(""), "next")
+        XCTAssertEqual(report("project:work"), "next")
+        XCTAssertEqual(report("ne"), "next")          // ambiguous word is a filter; default runs
+        XCTAssertEqual(report("+home list"), "list")
+        XCTAssertNil(report("1 information"))
+        XCTAssertNil(report("burndown"))
+        XCTAssertNil(report("timesheet"))             // a report, but not a column report
+        XCTAssertNil(report("1 done"))
+    }
+
+    func testParseAndOrderUUIDs() throws {
+        let a = "598b5414-e410-49f4-8376-014443da82b2"
+        let b = "D8082A49-32B7-4FE7-BBE4-A9AA8FF3EED6"
+        let listing = "\n\(b)\n\(a)\n\nSync required.\n"
+        let uuids = ReportQuery.parseUUIDs(listing)
+        XCTAssertEqual(uuids, [b.lowercased(), a])
+
+        let items = try TaskItem.decodeExport(TaskItemTests().sample)
+        XCTAssertEqual(ReportQuery.ordered(items, by: uuids).map(\.number), [0, 3])
+        XCTAssertEqual(ReportQuery.exportArguments(uuids: [a]), [a, "export"])
+    }
+}

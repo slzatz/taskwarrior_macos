@@ -60,6 +60,17 @@ after modifications or when the window geometry changes. Views are thin.
   trivial SwiftUI view and the Makefile exports it as `SDKROOT`, printing a one-line note when it
   does. The probe is deliberately uncached so it goes dormant as soon as Xcode is installed; an
   `SDKROOT` already set in the environment skips it. Installing Xcode is the real fix.
+- The list view gets its rows by running the report with `rc.report.<name>.columns=uuid`
+  and then `task <uuid…> export`. Do not use `task export <report>` instead: it applies the
+  report's filter and sort but **ignores the context**. An empty UUID list must never reach
+  `export` (no filter exports every task). Only reports with `report.<name>.columns` are
+  listable (`ReportQuery.listableReport`); everything else falls back to the text view.
+- Row actions in the list call `AppModel.perform`, which goes through `run(line:)` with the
+  task's UUID (ids are renumbered by the refresh after each modification), so the usual
+  confirmation, log and refresh rules apply. Don't add a separate path.
+- Only the text view, log pane and command field are forced dark; the list follows the system.
+  `NSView`s in the dark area get `.darkAqua` explicitly because SwiftUI's colour scheme
+  environment doesn't reach them.
 - Command output for listings goes to the status line, not the log, so refreshes stay quiet.
 - All display colour comes from the user's theme via `rc._forcecolor=on`; the app adds none of its own.
   `dark-256.theme` only colours state (due/overdue/active/recurring/blocked), so a list of plain
@@ -90,10 +101,9 @@ after modifications or when the window geometry changes. Views are thin.
 
 Stage 2 is the structured view; the rest are candidates in rough priority order.
 
-1. **Structured table view** – run `task <filter> export` alongside the report, render an
-   `NSTableView` using the report's `report.<name>.columns` from `_show`; checkbox per row issues
-   `task <uuid> done`. `ParsedCommand.filter` already isolates the filter. Keep the verbatim text
-   view as a fallback/toggle so custom reports never break.
+1. **Structured list view (started)** – `TaskListView` draws taskchamp-style rows with a done
+   checkbox and context menu; List/Raw toggle (⌘1/⌘2). Next: detail pane, grouping by
+   project/due bucket, and scheduled/wait hints on the row.
 2. **Auto-sync** – debounced `task sync` a few seconds after any modification, plus periodic pull
    (e.g. every 10 min and on app activation); spinner and last-sync time in the status line;
    failures surface once, not on every retry.

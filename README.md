@@ -1,9 +1,10 @@
 # Taskwarrior for macOS
 
-A native macOS window around the `task` command line. The top pane shows a
-taskwarrior report exactly as the terminal would print it (colours included);
-the field at the bottom accepts any taskwarrior command; an output pane in
-between shows what non-report commands said.
+A native macOS window around the `task` command line. The top pane shows the
+current taskwarrior report, either as a list of native rows (the default) or
+exactly as the terminal would print it (colours included); the field at the
+bottom accepts any taskwarrior command; an output pane in between shows what
+non-report commands said.
 
 Requirements: macOS 14+, Xcode 15+ command line tools, taskwarrior 3.x on the
 machine (`brew install task`).
@@ -37,6 +38,15 @@ arguments) and handed straight to the `task` binary. Globs, `$VARIABLES`, pipes,
 `&&` and redirection are therefore passed to taskwarrior verbatim rather than
 expanded, and no other program can be run from the field.
 
+- **List / Raw** (the switch in the output pane header, or **⌘1** / **⌘2**) chooses how
+  reports are drawn. List shows each task as a row: description in the system font,
+  then project, priority and tag badges and a short due date (red when overdue).
+  The rows are exactly the report's, in its order, with the context applied. Click
+  the circle (or select and press **Space**) to mark a task done; double-click or
+  **Return** shows `information`; right-click for start/stop, delete and Copy UUID.
+  Graphs, `information` and other non-task output always use the raw view. The list
+  follows the system light/dark appearance; the raw view stays dark because
+  taskwarrior's colours assume a black terminal.
 - **Up / Down** walk the command history (kept between launches). **Esc** clears the field.
 - **⌘=** / **⌘-** / **⌘0** change the font size; the report is re-run so columns fit the window.
 - **⌘R** re-runs the current listing, **⌘L** focuses the command field,
@@ -110,10 +120,13 @@ Sources/TaskwarriorCore   no UI; unit-tested
   DisplayPolicy.swift     what to do with each command's output; confirmation rules
   ANSIParser.swift        colour escape codes -> styled runs
   TaskRunner.swift        runs the task binary
+  TaskItem.swift          one task decoded from `task export`
+  ReportQuery.swift       which reports can be listed; the uuid-listing + export queries
   TaskEnvironment.swift   reads the user's relevant rc settings
 Sources/TaskwarriorApp    SwiftUI + AppKit
   AppModel.swift          all state; serial command queue; geometry -> defaultwidth/height
   TerminalTextView.swift  non-wrapping monospaced NSTextView for the report
+  TaskListView.swift      the report as native rows (styled after taskchamp's task cells)
   CommandField.swift      NSTextField with history navigation
   ContentView.swift       layout, output pane, confirmation alert
   TerminalStyle.swift     palette and attributed-string building
@@ -123,10 +136,8 @@ Sources/TaskwarriorApp    SwiftUI + AppKit
 
 1. **Done (this stage):** verbatim report display, command field with history,
    refresh rules, output pane, confirmations, font zoom, geometry-aware reports.
-2. **Structured view:** run `task <filter> export` alongside the report and
-   render a real table (NSTableView) with a checkbox per row that issues
-   `task <uuid> done`. The report's column list comes from `task _show`
-   (`report.<name>.columns`). `ParsedCommand.filter` already isolates the
-   filter for this.
-3. **Quick-add form** and per-row context menu (start/stop, annotate, modify).
+2. **Structured view (started):** reports are drawn as native rows with a done
+   checkbox and a context menu. Next: a detail pane for the selected task,
+   inline editing, keyboard navigation, grouping by project or due date.
+3. **Quick-add form** with project/tag completion.
 4. Optional light theme / font choice; auto-sync on a timer.

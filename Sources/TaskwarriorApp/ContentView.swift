@@ -7,32 +7,44 @@ struct ContentView: View {
     var body: some View {
         @Bindable var model = model
         VStack(spacing: 0) {
-            TerminalTextView(
-                runs: model.display,
-                generation: model.displayGeneration,
-                fontSize: model.fontSize,
-                preserveScroll: model.displayIsRefresh
-            )
+            Group {
+                if let tasks = model.tasks {
+                    TaskListView(tasks: tasks, generation: model.displayGeneration, preserveScroll: model.displayIsRefresh)
+                } else {
+                    // Taskwarrior's colours assume a black terminal, so this view stays dark.
+                    TerminalTextView(
+                        runs: model.display,
+                        generation: model.displayGeneration,
+                        fontSize: model.fontSize,
+                        preserveScroll: model.displayIsRefresh
+                    )
+                    .background(Color(nsColor: TerminalPalette.background))
+                }
+            }
             .onGeometryChange(for: CGSize.self) { $0.size } action: { size in
                 model.displaySizeChanged(size)
             }
 
-            Divider()
-            LogPane()
-            Divider()
+            // The log shows ANSI-coloured output too, so the bottom of the window stays dark
+            // even when the list follows a light system appearance.
+            VStack(spacing: 0) {
+                Divider()
+                LogPane()
+                Divider()
 
-            CommandField(
-                text: $model.commandText,
-                fontSize: model.fontSize,
-                history: model.history,
-                focusRequest: model.focusRequest,
-                onSubmit: { model.submit() }
-            )
-            .padding(8)
+                CommandField(
+                    text: $model.commandText,
+                    fontSize: model.fontSize,
+                    history: model.history,
+                    focusRequest: model.focusRequest,
+                    onSubmit: { model.submit() }
+                )
+                .padding(8)
+            }
+            .background(Color(nsColor: TerminalPalette.headerBackground))
+            .environment(\.colorScheme, .dark)
         }
         .frame(minWidth: 520, minHeight: 320)
-        .background(Color(nsColor: TerminalPalette.headerBackground))
-        .preferredColorScheme(.dark)
         .alert(
             model.pendingConfirmation?.title ?? "Confirm",
             isPresented: Binding(
@@ -60,6 +72,7 @@ struct LogPane: View {
     private var logFontSize: Double { max(model.fontSize - 1, 9) }
 
     var body: some View {
+        @Bindable var model = model
         VStack(spacing: 0) {
             HStack(spacing: 8) {
                 Button {
@@ -81,6 +94,15 @@ struct LogPane: View {
                 if model.isRunning {
                     ProgressView().controlSize(.small)
                 }
+                Picker("Display", selection: $model.displayMode) {
+                    Text("List").tag(DisplayMode.list)
+                    Text("Raw").tag(DisplayMode.text)
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .controlSize(.small)
+                .fixedSize()
+                .help("Show reports as a task list or as taskwarrior's raw output")
                 Text(model.currentContext.isEmpty || model.currentContext == "none" ? "no context" : "context: \(model.currentContext)")
                     .font(.system(size: logFontSize, design: .monospaced))
                     .foregroundStyle(Color(nsColor: TerminalPalette.dimForeground))

@@ -23,6 +23,11 @@ struct TaskwarriorApp: App {
         .defaultSize(width: 980, height: 640)
         .commands {
             CommandGroup(after: .toolbar) {
+                Button("Show as List") { model.displayMode = .list }
+                    .keyboardShortcut("1", modifiers: .command)
+                Button("Show Raw Output") { model.displayMode = .text }
+                    .keyboardShortcut("2", modifiers: .command)
+                Divider()
                 Button("Increase Font Size") { model.adjustFontSize(by: 1) }
                     .keyboardShortcut("=", modifiers: .command)
                 Button("Decrease Font Size") { model.adjustFontSize(by: -1) }

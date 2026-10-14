@@ -9,6 +9,13 @@ struct LogEntry: Identifiable {
     let isError: Bool
 }
 
+enum DisplayMode: String {
+    /// Reports are drawn as native task rows; everything else falls back to text.
+    case list
+    /// Taskwarrior's own coloured output, verbatim.
+    case text
+}
+
 struct Confirmation: Identifiable {
     let id = UUID()
     let title: String
@@ -28,6 +35,17 @@ final class AppModel {
     private(set) var displayIsRefresh = false
     /// The listing command that is re-run after modifications (e.g. `task project:work next`).
     private(set) var currentView: ParsedCommand?
+    /// The current report's tasks when it is shown as a list; nil when `display` text is shown.
+    private(set) var tasks: [TaskItem]?
+    /// Heading above the list, e.g. `next · project:work`.
+    private(set) var listTitle = ""
+    var displayMode: DisplayMode {
+        didSet {
+            guard displayMode != oldValue else { return }
+            defaults.set(displayMode.rawValue, forKey: Keys.displayMode)
+            refreshCurrentView()
+        }
+    }
 
     // MARK: Log / status
     private(set) var log: [LogEntry] = []
@@ -72,6 +90,7 @@ final class AppModel {
         static let logExpanded = "logExpanded"
         static let history = "history"
         static let taskExecutable = "taskExecutable"
+        static let displayMode = "displayMode"
     }
 
     init() {
@@ -79,6 +98,7 @@ final class AppModel {
         fontSize = stored > 0 ? stored : Self.defaultFontSize
         logExpanded = defaults.object(forKey: Keys.logExpanded) as? Bool ?? true
         history = defaults.stringArray(forKey: Keys.history) ?? []
+        displayMode = defaults.string(forKey: Keys.displayMode).flatMap(DisplayMode.init) ?? .list
     }
 
     // MARK: - Lifecycle
@@ -163,6 +183,13 @@ final class AppModel {
 
     func focusCommandField() { focusRequest += 1 }
 
+    /// Runs a command on one task from the list, e.g. `done` or `start`. Goes through the same
+    /// path as a typed line so confirmation, logging and refresh rules all apply. The UUID is
+    /// used because ids are renumbered by the refresh that follows each modification.
+    func perform(_ command: String, on task: TaskItem) {
+        run(line: "\(task.uuid) \(command)")
+    }
+
     /// Resolves once every queued command has finished (used by scripted runs).
     func waitUntilIdle() async {
         while true {
@@ -218,6 +245,12 @@ final class AppModel {
         isRunning = true
         defer { isRunning = false }
 
+        if case .replaceDisplay(let remember) = action, displayMode == .list,
+           let report = ReportQuery.listableReport(for: parsed, catalog: catalog, config: environment?.config ?? [:]),
+           await showList(parsed, report: report, remember: remember) {
+            return
+        }
+
         let result = await runInBackground(runner, arguments: parsed.tokens)
         switch result {
         case .failure(let error):
@@ -228,6 +261,7 @@ final class AppModel {
             case .replaceDisplay(let remember):
                 displayIsRefresh = remember && currentView?.tokens == parsed.tokens
                 display = ANSIParser.parse(output.primaryOutput)
+                tasks = nil
                 displayGeneration += 1
                 if remember { currentView = parsed }
                 if !output.succeeded {
@@ -252,10 +286,38 @@ final class AppModel {
         }
     }
 
-    private func runInBackground(_ runner: TaskRunner, arguments: [String]) async -> Result<TaskResult, Error> {
-        let geometry = ["rc.defaultwidth=\(max(columns, 40))", "rc.defaultheight=\(max(rows, 10))"]
+    /// Shows a report as task rows: the report run with only a uuid column gives exactly the
+    /// rows and order the CLI would show (context, filter, limit, sort), then those tasks are
+    /// exported. Returns false when the text view should be used instead (e.g. a filter error).
+    private func showList(_ parsed: ParsedCommand, report: String, remember: Bool) async -> Bool {
+        guard let runner else { return false }
+        let listing = await runInBackground(runner, arguments: parsed.tokens, extra: ReportQuery.uuidListingOverrides(report: report))
+        guard case .success(let output) = listing else { return false }
+        let uuids = ReportQuery.parseUUIDs(output.stdout)
+        var items: [TaskItem] = []
+        if uuids.isEmpty {
+            // "No matches." exits non-zero; any other failure is shown verbatim as text.
+            guard output.succeeded || output.combinedOutput.contains("No matches") else { return false }
+        } else {
+            let exported = await runInBackground(runner, arguments: ReportQuery.exportArguments(uuids: uuids), extra: ["rc.verbose=nothing"])
+            guard case .success(let json) = exported, json.succeeded,
+                  let decoded = try? TaskItem.decodeExport(json.stdout) else { return false }
+            items = ReportQuery.ordered(decoded, by: uuids)
+        }
+        displayIsRefresh = remember && currentView?.tokens == parsed.tokens
+        tasks = items
+        listTitle = ([report] + parsed.filter.filter { !$0.hasPrefix("rc.") && !$0.hasPrefix("rc:") }).joined(separator: " · ")
+        displayGeneration += 1
+        if remember { currentView = parsed }
+        let note = uuids.isEmpty ? output.combinedOutput : output.stderr
+        setStatus(command: parsed.displayString, text: note, isError: false)
+        return true
+    }
+
+    private func runInBackground(_ runner: TaskRunner, arguments: [String], extra: [String] = []) async -> Result<TaskResult, Error> {
+        let overrides = ["rc.defaultwidth=\(max(columns, 40))", "rc.defaultheight=\(max(rows, 10))"] + extra
         return await Task.detached(priority: .userInitiated) {
-            Result { try runner.run(arguments, overrides: geometry) }
+            Result { try runner.run(arguments, overrides: overrides) }
         }.value
     }
 
@@ -294,6 +356,7 @@ final class AppModel {
 
     private func showMessage(_ text: String) {
         display = [StyledRun(text: text)]
+        tasks = nil
         displayGeneration += 1
         displayIsRefresh = false
     }

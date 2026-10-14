@@ -14,6 +14,7 @@ struct CommandField: NSViewRepresentable {
 
     func makeNSView(context: Context) -> NSTextField {
         let field = NSTextField()
+        field.appearance = NSAppearance(named: .darkAqua)
         field.delegate = context.coordinator
         field.font = NSFont.monospacedSystemFont(ofSize: fontSize, weight: .regular)
         field.placeholderString = "task command  (e.g. next · 5 done · add Buy milk due:tomorrow · sync)"

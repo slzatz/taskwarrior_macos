@@ -153,6 +153,35 @@ final class TaskItemTests: XCTestCase {
         XCTAssertTrue(try TaskItem.decodeExport(json)[0].hasVimangoNote)
     }
 
+    func testVimangoNoteURL() throws {
+        let items = try TaskItem.decodeExport(sample)
+        let url = try XCTUnwrap(items[0].vimangoNoteURL)
+        XCTAssertEqual(url.scheme, "vimango")
+        XCTAssertEqual(url.host, "task-note")
+        let query = try XCTUnwrap(URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems)
+        XCTAssertEqual(query.map(\.name), ["uuid", "title", "project"])
+        XCTAssertEqual(query.map(\.value), ["598b5414-e410-49f4-8376-014443da82b2", "Call the office", "work"])
+
+        let json = #"[{"uuid":"598b5414-e410-49f4-8376-014443da82b2","description":"Plan & pack?"}]"#
+        let bare = try XCTUnwrap(TaskItem.decodeExport(json)[0].vimangoNoteURL)
+        let bareQuery = try XCTUnwrap(URLComponents(url: bare, resolvingAgainstBaseURL: false)?.queryItems)
+        XCTAssertEqual(bareQuery.map(\.name), ["uuid", "title"])
+        XCTAssertEqual(bareQuery[1].value, "Plan & pack?")
+    }
+
+    func testTaskchampLink() {
+        let uuid = "598b5414-e410-49f4-8376-014443da82b2"
+        func link(_ string: String) -> TaskchampLink? { URL(string: string).flatMap(TaskchampLink.init(url:)) }
+        XCTAssertEqual(link("taskchampdev://task/\(uuid)"), .open(uuid: uuid))
+        XCTAssertEqual(link("taskchampdev://task/\(uuid.uppercased())"), .open(uuid: uuid))
+        XCTAssertEqual(link("taskchampdev://task/new?uuid=\(uuid)&title=x"), .new)
+        XCTAssertNil(link("taskchampdev://task/not-a-uuid"))
+        XCTAssertNil(link("taskchampdev://task/"))
+        XCTAssertNil(link("taskchampdev://filter/\(uuid)"))
+        XCTAssertNil(link("taskchamp://task/\(uuid)"))
+        XCTAssertNil(link("taskchampdev://task/\(uuid)/extra"))
+    }
+
     func testParseDate() {
         let date = TaskItem.parseDate("20261012T040506Z")
         XCTAssertEqual(date?.timeIntervalSince1970, 1_791_777_906)

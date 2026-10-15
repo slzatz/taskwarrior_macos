@@ -22,7 +22,7 @@ struct TaskListView: View {
             ScrollViewReader { proxy in
                 List(selection: $selection) {
                     ForEach(tasks) { task in
-                        TaskRow(task: task, fontSize: fontSize)
+                        TaskRow(task: task, fontSize: fontSize) { model.openVimangoNote(for: task) }
                             .tag(task.uuid)
                             .id(task.uuid)
                     }
@@ -84,6 +84,7 @@ struct TaskListView: View {
             Button(task.isActive ? "Stop" : "Start") { model.perform(task.isActive ? "stop" : "start", on: task) }
         }
         Button("Show Info") { model.perform("information", on: task) }
+        Button(task.hasVimangoNote ? "Open vimango Note" : "Create vimango Note") { model.openVimangoNote(for: task) }
         Divider()
         Button("Copy UUID") {
             NSPasteboard.general.clearContents()
@@ -99,6 +100,7 @@ struct TaskListView: View {
 private struct TaskRow: View {
     let task: TaskItem
     let fontSize: Double
+    let openNote: () -> Void
 
     private var hasDetails: Bool {
         task.project != nil || task.priority != nil || !task.tags.isEmpty || task.due != nil
@@ -129,7 +131,9 @@ private struct TaskRow: View {
                     Image(systemName: "doc.text")
                         .font(.system(size: fontSize - 2))
                         .foregroundStyle(.indigo)
-                        .help("Has a vimango note")
+                        .help("Open the vimango note")
+                        // A tap gesture, not a Button: List rows capture Button clicks row-wide.
+                        .onTapGesture(perform: openNote)
                 }
             }
             if hasDetails {

@@ -84,6 +84,9 @@ final class AppModel {
     private var queueGeneration = 0
     private var geometryRefresh: Task<Void, Never>?
     private var bootstrapped = false
+    /// Links that arrived before `bootstrap` found taskwarrior (a link that launches the app
+    /// does); handled once it has.
+    private var pendingURLs: [URL] = []
 
     private enum Keys {
         static let fontSize = "fontSize"
@@ -128,6 +131,9 @@ final class AppModel {
         }
         // The initial view is whatever `task` alone shows (the user's default.command).
         enqueue(ParsedCommand.parse("", catalog: catalog), action: .replaceDisplay(remember: true))
+        let queued = pendingURLs
+        pendingURLs = []
+        queued.forEach(handle(url:))
     }
 
     // MARK: - Commands from the UI
@@ -188,6 +194,40 @@ final class AppModel {
     /// used because ids are renumbered by the refresh that follows each modification.
     func perform(_ command: String, on task: TaskItem) {
         run(line: "\(task.uuid) \(command)")
+    }
+
+    /// Opens (or has vimango create) the task's note via `vimango://task-note`, as taskchamp's
+    /// note button does. The `vimango` annotation is added only once the URL has been taken, and
+    /// only if the task doesn't carry it yet, through `perform` like any other row action.
+    func openVimangoNote(for task: TaskItem) {
+        guard let url = task.vimangoNoteURL else { return }
+        Task {
+            do {
+                _ = try await NSWorkspace.shared.open(url, configuration: NSWorkspace.OpenConfiguration())
+            } catch {
+                appendLog(command: "vimango note", text: "Can't open vimango: \(error.localizedDescription)\nRun vimango_hybrid once so macOS knows it opens vimango:// links.", isError: true)
+                return
+            }
+            if !task.hasVimangoNote {
+                perform("annotate \(TaskItem.vimangoNoteAnnotation)", on: task)
+            }
+        }
+    }
+
+    /// Handles a link opened from outside, e.g. the `taskchampdev://task/<uuid>` line in a vimango note.
+    func handle(url: URL) {
+        guard runner != nil else {
+            pendingURLs.append(url)
+            return
+        }
+        switch TaskchampLink(url: url) {
+        case .open(let uuid):
+            run(line: "\(uuid) information")
+        case .new:
+            appendLog(command: url.absoluteString, text: "Creating a task from a vimango note isn't supported on the Mac yet.", isError: true)
+        case nil:
+            appendLog(command: url.absoluteString, text: "Not a link this app understands.", isError: true)
+        }
     }
 
     /// Resolves once every queued command has finished (used by scripted runs).

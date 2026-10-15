@@ -19,6 +19,8 @@ struct TaskwarriorApp: App {
                     await DebugHooks.run(with: model)
                 }
                 .onAppear { NSApp.activate(ignoringOtherApps: true) }
+                // `taskchampdev://task/<uuid>` back-links from vimango notes.
+                .onOpenURL { model.handle(url: $0) }
         }
         .defaultSize(width: 980, height: 640)
         .commands {

@@ -71,11 +71,12 @@ after modifications or when the window geometry changes. Views are thin.
 - **vimango notes are linked by the task's uuid**, the protocol taskchamp and VimNotes use on iOS
   (`TaskwarriorCore/VimangoLink.swift`). "Open/Create vimango Note" (row menu, or a click on the
   indigo icon) opens `vimango://task-note?uuid=&title=&project=`. vimango_hybrid finds the note
-  whose frontmatter holds `taskwarrior: <uuid>` or creates it. The task's `vimango` annotation is
-  added only after the URL has been accepted, and only once, through `perform`. The app claims
-  `taskchampdev` (Info.plist) so the `[Open task in Taskchamp](taskchampdev://task/<uuid>)` line
-  in those notes shows the task here; `task/new` (creating a task from a note) isn't handled yet,
-  since `task add` can't set a uuid (`task import` can).
+  whose `taskwarrior_uuid` column holds the uuid, or creates it (the link moved out of the note's
+  frontmatter on 2026-10-16; `~/vimango/docs/taskwarrior-link-column.md`). The task's `vimango`
+  annotation is added only after the URL has been accepted, and only once, through `perform`. The
+  app claims `taskchampdev` (Info.plist) so `taskchampdev://task/<uuid>`, which hybrid's
+  `:task` / File > Open Task sends, shows the task here. `task/new` (creating a task from a note)
+  isn't handled yet, since `task add` can't set a uuid (`task import` can).
 - Only the text view, log pane and command field are forced dark; the list follows the system.
   `NSView`s in the dark area get `.darkAqua` explicitly because SwiftUI's colour scheme
   environment doesn't reach them.
@@ -130,4 +131,4 @@ Stage 2 is the structured view; the rest are candidates in rough priority order.
 10. **Undo affordance** – after done/delete, a transient "Undo" button in the status line.
 11. **Task from a vimango note** – handle `taskchampdev://task/new?uuid=&title=&project=` with
     `task import` of a one-task JSON file (check the uuid doesn't exist first), and give
-    vimango_hybrid a command that writes the frontmatter through vimango, not Swift.
+    vimango_hybrid a command that links the note (`Repository.linkTask`, a metadata write).

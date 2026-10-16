@@ -214,7 +214,7 @@ final class AppModel {
         }
     }
 
-    /// Handles a link opened from outside, e.g. the `taskchampdev://task/<uuid>` line in a vimango note.
+    /// Handles a link opened from outside, e.g. `taskchampdev://task/<uuid>` from vimango_hybrid's Open Task.
     func handle(url: URL) {
         guard runner != nil else {
             pendingURLs.append(url)

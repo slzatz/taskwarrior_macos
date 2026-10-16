@@ -1,7 +1,7 @@
 import Foundation
 
 /// The task ↔ note link shared with taskchamp and VimNotes on iOS. The task's uuid is the link:
-/// the note carries it as a `taskwarrior: <uuid>` frontmatter line (vimango's side, which finds or
+/// the note carries it in its synced `taskwarrior_uuid` column (vimango's side, which finds or
 /// creates the note), and the task carries a `vimango` annotation once it has a note.
 public extension TaskItem {
     /// Asks vimango for this task's note, which it finds by the uuid or creates:
@@ -21,9 +21,9 @@ public extension TaskItem {
     }
 }
 
-/// A `taskchampdev://task/…` link, as vimango notes carry back to their task
-/// (`[Open task in Taskchamp](taskchampdev://task/<uuid>)`). The scheme is the personal
-/// taskchamp build's; this app claims it on the Mac so the same note works on both.
+/// A `taskchampdev://task/…` link back to a note's task, as vimango_hybrid's `:task` / File > Open
+/// Task sends it (older notes carried it in their text). The scheme is the personal taskchamp
+/// build's; this app claims it on the Mac so the same link works on both.
 public enum TaskchampLink: Equatable, Sendable {
     /// Show task `uuid` (lowercased, as taskwarrior writes it).
     case open(uuid: String)

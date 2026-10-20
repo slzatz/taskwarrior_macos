@@ -15,6 +15,13 @@ struct TaskListView: View {
 
     private var fontSize: Double { model.fontSize }
 
+    /// Digits in the widest id, so the id column fits it; 0 when no task has one
+    /// (completed and deleted tasks), which leaves the column out.
+    private var idDigits: Int {
+        let widest = tasks.map(\.number).max() ?? 0
+        return widest > 0 ? String(widest).count : 0
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             header
@@ -22,7 +29,9 @@ struct TaskListView: View {
             ScrollViewReader { proxy in
                 List(selection: $selection) {
                     ForEach(tasks) { task in
-                        TaskRow(task: task, pins: model.listPins, fontSize: fontSize) { model.openVimangoNote(for: task) }
+                        TaskRow(task: task, pins: model.listPins, idDigits: idDigits, fontSize: fontSize) {
+                            model.openVimangoNote(for: task)
+                        }
                             .tag(task.uuid)
                             .id(task.uuid)
                     }
@@ -216,6 +225,7 @@ private struct TaskRow: View {
     let task: TaskItem
     /// What the context and filters pin. Every row would repeat it, so it gets no badge.
     let pins: FilterPins
+    let idDigits: Int
     let fontSize: Double
     let openNote: () -> Void
 
@@ -227,6 +237,9 @@ private struct TaskRow: View {
     /// first, so a long description is what gets cut short; its tooltip has the full text.
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 6) {
+            if idDigits > 0 {
+                idColumn
+            }
             Text(task.description)
                 .font(.system(size: fontSize + 1))
                 .lineLimit(1)
@@ -255,6 +268,19 @@ private struct TaskRow: View {
         .alignmentGuide(.listRowSeparatorLeading) { $0[.leading] }
         .padding(.vertical, 2)
         .opacity(task.isCompleted || task.isDeleted ? 0.45 : 1)
+    }
+
+    /// The id for typing commands (`5 done`), right-aligned in a column as wide as the widest
+    /// id; blank for a task without one. Row actions still use the uuid, since ids renumber.
+    private var idColumn: some View {
+        ZStack(alignment: .trailing) {
+            Text(String(repeating: "0", count: idDigits)).hidden()
+            if task.number > 0 {
+                Text(String(task.number)).foregroundStyle(.secondary)
+            }
+        }
+        .font(.system(size: fontSize).monospacedDigit())
+        .accessibilityLabel(task.number > 0 ? "Task \(task.number)" : "")
     }
 
     private var badges: some View {

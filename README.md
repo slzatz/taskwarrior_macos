@@ -39,7 +39,8 @@ arguments) and handed straight to the `task` binary. Globs, `$VARIABLES`, pipes,
 expanded, and no other program can be run from the field.
 
 - **List / Raw** (the switch in the output pane header, or **⌘1** / **⌘2**) chooses how
-  reports are drawn. List shows each task as one line: description in the system font,
+  reports are drawn. List shows each task as one line: its id (for typing `5 done`;
+  blank for completed and deleted tasks), the description in the system font,
   then project, priority and tag badges, and a short due date at the right (red when
   overdue). Badges that the context or filter already pin are left out: under the
   `work` context no row says `work`, and `work.infra` shows as `infra`.

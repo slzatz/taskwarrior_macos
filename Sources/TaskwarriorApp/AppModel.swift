@@ -210,7 +210,8 @@ final class AppModel {
 
     /// The projects the header offers: those the context and report allow, nested.
     var projectChoices: [ProjectNode] {
-        ProjectNode.tree(projects, under: headerPins.project)
+        let pins = headerPins
+        return ProjectNode.tree(projects.filter { !pins.excludes(project: $0) }, under: pins.project)
     }
 
     func showReport(_ report: String) {

@@ -13,11 +13,14 @@ public struct FilterPins: Equatable, Sendable {
     public var project: String?
     public var priority: String?
     public var tags: Set<String>
+    /// Projects the filters rule out (`project.not:fact`), as `modifier:value` words.
+    public var projectExclusions: [String]
 
-    public init(project: String? = nil, priority: String? = nil, tags: Set<String> = []) {
+    public init(project: String? = nil, priority: String? = nil, tags: Set<String> = [], projectExclusions: [String] = []) {
         self.project = project
         self.priority = priority
         self.tags = tags
+        self.projectExclusions = projectExclusions
     }
 
     /// Pins from filter sources, each already split into words.
@@ -25,12 +28,16 @@ public struct FilterPins: Equatable, Sendable {
         var projects = Set<String>()
         var priorities = Set<String>()
         var tags = Set<String>()
+        var exclusions: [String] = []
         for words in sources where Self.isPlainConjunction(words) {
             for word in words where !word.hasPrefix("rc.") && !word.hasPrefix("rc:") {
                 if word.hasPrefix("+"), word.count > 1 {
                     tags.insert(String(word.dropFirst()))
                 } else if let value = Self.value(of: "project", in: word) {
                     projects.insert(value)
+                } else if let (modifier, value) = Self.term(of: "project", word), let modifier,
+                          Self.excludingModifiers.contains(modifier), !value.isEmpty {
+                    exclusions.append("\(modifier):\(value)")
                 } else if let value = Self.value(of: "priority", in: word) {
                     priorities.insert(value)
                 }
@@ -39,7 +46,8 @@ public struct FilterPins: Equatable, Sendable {
         self.init(
             project: Self.narrowest(projects),
             priority: priorities.count == 1 ? priorities.first : nil,
-            tags: tags
+            tags: tags,
+            projectExclusions: exclusions
         )
     }
 
@@ -49,6 +57,22 @@ public struct FilterPins: Equatable, Sendable {
         guard let longest = projects.max(by: { $0.count < $1.count }),
               projects.allSatisfy({ longest.hasPrefix($0) }) else { return nil }
         return longest
+    }
+
+    /// Whether the filters rule this project out, as taskwarrior 3.5 does: `.not` by prefix
+    /// (`project.not:Hom` excludes `Home.Garden` and `Homework`), `.isnt` exactly, `.hasnt`
+    /// anywhere in the name.
+    public func excludes(project: String) -> Bool {
+        projectExclusions.contains { exclusion in
+            guard let colon = exclusion.firstIndex(of: ":") else { return false }
+            let value = String(exclusion[exclusion.index(after: colon)...])
+            switch exclusion[..<colon] {
+            case "not": return project.hasPrefix(value)
+            case "isnt": return project == value
+            case "hasnt": return project.contains(value)
+            default: return false
+            }
+        }
     }
 
     /// The project badge's text: nil when it is the pinned project, the rest of the name for a
@@ -78,6 +102,9 @@ public struct FilterPins: Equatable, Sendable {
         }
     }
 
+    /// Modifiers that rule projects out; see `excludes(project:)`.
+    private static let excludingModifiers: Set<String> = ["not", "isnt", "hasnt"]
+
     /// Modifiers under which every match shares the value as a prefix (`is` exactly).
     private static let pinningModifiers: Set<String> = ["is", "equals", "startswith", "left"]
 
@@ -95,7 +122,7 @@ public struct FilterPins: Equatable, Sendable {
         term(of: attribute, word) != nil
     }
 
-    private static func term(of attribute: String, _ word: String) -> (modifier: String?, value: String)? {
+    static func term(of attribute: String, _ word: String) -> (modifier: String?, value: String)? {
         guard let separator = word.firstIndex(where: { $0 == ":" || $0 == "=" }) else { return nil }
         let name = word[..<separator].lowercased().split(separator: ".", maxSplits: 1, omittingEmptySubsequences: false)
         guard let base = name.first, base.count >= 3, attribute.hasPrefix(base) else { return nil }

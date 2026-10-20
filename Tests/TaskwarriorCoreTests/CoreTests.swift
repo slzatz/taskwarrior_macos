@@ -229,7 +229,7 @@ final class FilterPinsTests: XCTestCase {
 
     func testContextReportAndTypedFilter() {
         let p = pins("project:work", "status:pending -WAITING project.not:fact limit:page", "+finance pri:H")
-        XCTAssertEqual(p, FilterPins(project: "work", priority: "H", tags: ["finance"]))
+        XCTAssertEqual(p, FilterPins(project: "work", priority: "H", tags: ["finance"], projectExclusions: ["not:fact"]))
     }
 
     func testAbbreviationsAndModifiers() {
@@ -255,6 +255,18 @@ final class FilterPinsTests: XCTestCase {
         // Sources are ANDed, so the plain one still pins.
         XCTAssertEqual(pins("project:a or +x", "project:work"), FilterPins(project: "work"))
         XCTAssertEqual(pins("project:a and +x").project, "a")
+    }
+
+    func testProjectExclusions() {
+        let p = pins("project.not:Hom project.isnt:work", "project.hasnt:tmp")
+        XCTAssertTrue(p.excludes(project: "Homework"))
+        XCTAssertTrue(p.excludes(project: "Home.Garden"))
+        XCTAssertTrue(p.excludes(project: "work"))
+        XCTAssertFalse(p.excludes(project: "work.infra"))
+        XCTAssertTrue(p.excludes(project: "a.tmp.b"))
+        XCTAssertFalse(p.excludes(project: "meadow"))
+        // Only guaranteed exclusions: not inside an or.
+        XCTAssertFalse(pins("project.not:fact or +x").excludes(project: "fact"))
     }
 
     func testConflictingValuesPinNeither() {

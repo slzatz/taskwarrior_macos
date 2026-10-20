@@ -58,10 +58,23 @@ struct TaskListView: View {
         .background(Color(nsColor: .controlBackgroundColor))
     }
 
+    /// Report ▾ · context ▾ · project ▾, then the rest of the typed filter and the count.
+    /// The menus run a new command line through the model, like a typed one.
     private var header: some View {
         HStack(spacing: 6) {
-            Text(model.listTitle)
-                .font(.system(size: fontSize, weight: .semibold))
+            if let listing = model.listing {
+                reportMenu(listing)
+                separator
+                contextMenu
+                separator
+                projectMenu(listing)
+                if !listing.filterText.isEmpty {
+                    separator
+                    Text(listing.filterText)
+                        .font(.system(size: fontSize, weight: .semibold))
+                        .truncationMode(.middle)
+                }
+            }
             Text(tasks.count == 1 ? "1 task" : "\(tasks.count) tasks")
                 .font(.system(size: fontSize - 1))
                 .foregroundStyle(.secondary)
@@ -70,6 +83,67 @@ struct TaskListView: View {
         .lineLimit(1)
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
+    }
+
+    private var separator: some View {
+        Text("·").foregroundStyle(.secondary)
+    }
+
+    private func reportMenu(_ listing: ListingView) -> some View {
+        let reports = model.reportChoices
+        return Menu {
+            ForEach(reports.main, id: \.self) { checkItem($0, isOn: $0 == listing.report) { model.showReport($0) } }
+            if !reports.variants.isEmpty {
+                Section("Same tasks as list, other sort") {
+                    ForEach(reports.variants, id: \.self) { checkItem($0, isOn: $0 == listing.report) { model.showReport($0) } }
+                }
+            }
+        } label: {
+            menuLabel(listing.report)
+        }
+        .headerMenuStyle()
+        .help("Report")
+    }
+
+    private var contextMenu: some View {
+        let current = model.currentContext == "none" ? "" : model.currentContext
+        return Menu {
+            checkItem("No context", isOn: current.isEmpty) { _ in model.switchContext("none") }
+            Divider()
+            ForEach(model.contexts, id: \.self) { checkItem($0, isOn: $0 == current) { model.switchContext($0) } }
+        } label: {
+            menuLabel(current.isEmpty ? "no context" : current, dimmed: current.isEmpty)
+        }
+        .headerMenuStyle()
+        .help("Context (changes it for the command line too)")
+    }
+
+    private func projectMenu(_ listing: ListingView) -> some View {
+        Menu {
+            checkItem("All projects", isOn: listing.project == nil) { _ in model.showProject(nil) }
+            Divider()
+            ProjectMenuItems(nodes: model.projectChoices, selected: listing.project) { model.showProject($0) }
+        } label: {
+            if let project = listing.project {
+                // Relative to the context, as the rows are (`infra` under `work`).
+                menuLabel(model.headerPins.shownProject(project) ?? project)
+            } else {
+                menuLabel("all projects", dimmed: true)
+            }
+        }
+        .headerMenuStyle()
+        .help("Project")
+    }
+
+    private func menuLabel(_ text: String, dimmed: Bool = false) -> some View {
+        Text(text)
+            .font(.system(size: fontSize, weight: .semibold))
+            .foregroundStyle(dimmed ? .secondary : .primary)
+    }
+
+    /// A menu item with a checkmark when it is the current choice.
+    private func checkItem(_ title: String, isOn: Bool, action: @escaping (String) -> Void) -> some View {
+        Toggle(title, isOn: Binding(get: { isOn }, set: { _ in action(title) }))
     }
 
     private func task(for uuids: Set<String>) -> TaskItem? {
@@ -94,6 +168,43 @@ struct TaskListView: View {
             Divider()
             Button("Delete…", role: .destructive) { model.perform("delete", on: task) }
         }
+    }
+}
+
+/// Projects as nested menus. A project with subprojects is a submenu that starts with the
+/// project itself, since a submenu's own title can't be picked.
+private struct ProjectMenuItems: View {
+    let nodes: [ProjectNode]
+    let selected: String?
+    let pick: (String) -> Void
+
+    var body: some View {
+        ForEach(nodes) { node in
+            if node.children.isEmpty {
+                item(node)
+            } else {
+                Menu(node.label) {
+                    item(node)
+                    Divider()
+                    // Type-erased: a view can't contain its own opaque type.
+                    AnyView(ProjectMenuItems(nodes: node.children, selected: selected, pick: pick))
+                }
+            }
+        }
+    }
+
+    private func item(_ node: ProjectNode) -> some View {
+        Toggle(node.label, isOn: Binding(get: { node.name == selected }, set: { _ in pick(node.name) }))
+    }
+}
+
+private extension View {
+    /// A borderless pull-down that reads as part of the header text.
+    func headerMenuStyle() -> some View {
+        menuStyle(.button)
+            .buttonStyle(.borderless)
+            .menuIndicator(.visible)
+            .fixedSize()
     }
 }
 

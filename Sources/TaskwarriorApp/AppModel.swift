@@ -37,10 +37,14 @@ final class AppModel {
     private(set) var currentView: ParsedCommand?
     /// The current report's tasks when it is shown as a list; nil when `display` text is shown.
     private(set) var tasks: [TaskItem]?
-    /// Heading above the list, e.g. `next · project:work`.
-    private(set) var listTitle = ""
+    /// The listing behind the list, split into what the header menus change.
+    private(set) var listing: ListingView?
     /// What the context and filters pin for every task in the list, so rows leave it out.
     private(set) var listPins = FilterPins()
+    /// Every project (`task _projects`, which ignores the context), for the header's menu.
+    private(set) var projects: [String] = []
+    /// Defined contexts (`task _context`), for the header's menu.
+    private(set) var contexts: [String] = []
     var displayMode: DisplayMode {
         didSet {
             guard displayMode != oldValue else { return }
@@ -130,6 +134,8 @@ final class AppModel {
         contextFilter = env.config["context.\(env.context).read"] ?? env.config["context.\(env.context)"] ?? ""
         runner = TaskRunner(executable: executable, baseOverrides: env.baseOverrides)
 
+        if let names = await quietLines(["_context"]) { contexts = names }
+
         // Wait briefly for the view to report its size so the first listing fits the window.
         for _ in 0..<25 where columns == 0 {
             try? await Task.sleep(for: .milliseconds(20))
@@ -185,6 +191,50 @@ final class AppModel {
                 }
             }
         }
+    }
+
+    // MARK: Header menus
+    // Each builds a command line and runs it like a typed one, so it shows in the status line
+    // and becomes the current view.
+
+    /// Reports the header offers; see `ListingView.listableReports`.
+    var reportChoices: (main: [String], variants: [String]) {
+        ListingView.listableReports(config: environment?.config ?? [:])
+    }
+
+    /// What the context and report pin before anything is typed; the project menu works within it.
+    var headerPins: FilterPins {
+        let report = listing.map { environment?.config["report.\($0.report).filter"] ?? "" } ?? ""
+        return FilterPins(sources: [contextFilter, report].map(ShellTokenizer.tokenize))
+    }
+
+    /// The projects the header offers: those the context and report allow, nested.
+    var projectChoices: [ProjectNode] {
+        ProjectNode.tree(projects, under: headerPins.project)
+    }
+
+    func showReport(_ report: String) {
+        guard let listing else { return }
+        run(listing: listing.with(report: report))
+    }
+
+    /// Narrows the listing to `project`, or widens it to all projects when nil.
+    func showProject(_ project: String?) {
+        guard let listing else { return }
+        run(listing: listing.with(project: project))
+    }
+
+    /// Switches context (`none` clears it) and shows the listing again. A context is picked
+    /// here on purpose, so unlike a typed `task context` it refreshes, and drops the typed
+    /// project, which belongs to the old context.
+    func switchContext(_ name: String) {
+        run(line: "context \(name)")
+        guard let listing else { return }
+        run(listing: listing.with(project: nil))
+    }
+
+    private func run(listing: ListingView) {
+        run(line: ShellTokenizer.join(listing.tokens))
     }
 
     func refreshCurrentView() {
@@ -353,8 +403,10 @@ final class AppModel {
         tasks = items
         // Words after a report's name filter it too (`next +finance`).
         let typed = parsed.filter + parsed.arguments
-        listTitle = ([report] + typed.filter { !$0.hasPrefix("rc.") && !$0.hasPrefix("rc:") }).joined(separator: " · ")
+        self.listing = ListingView(report: report, words: typed)
         listPins = FilterPins(sources: listingFilters(report: report, typed: typed))
+        // Cheap (about 13 ms), and any modification may have added a project.
+        if let names = await quietLines(["_projects"]) { projects = names }
         displayGeneration += 1
         if remember { currentView = parsed }
         let note = uuids.isEmpty ? output.combinedOutput : output.stderr
@@ -390,8 +442,18 @@ final class AppModel {
         return Int(result.stdout.trimmingCharacters(in: .whitespacesAndNewlines))
     }
 
+    /// Output lines of an internal command such as `_projects`, or nil if it failed.
+    private func quietLines(_ arguments: [String]) async -> [String]? {
+        guard let runner else { return nil }
+        let quiet = TaskRunner(executable: runner.executable, baseOverrides: ["rc.verbose=nothing"])
+        let result = await Task.detached { try? quiet.run(arguments) }.value
+        guard let result, result.succeeded else { return nil }
+        return result.stdout.split(whereSeparator: \.isNewline).map(String.init).filter { !$0.isEmpty }
+    }
+
     private func refreshContextName() async {
         guard let runner else { return }
+        if let names = await quietLines(["_context"]) { contexts = names }
         let quiet = TaskRunner(executable: runner.executable, baseOverrides: ["rc.verbose=nothing"])
         let result = await Task.detached { try? quiet.run(["_get", "rc.context"]) }.value
         guard let result, result.succeeded else { return }

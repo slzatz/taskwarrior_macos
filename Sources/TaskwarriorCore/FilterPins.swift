@@ -36,12 +36,19 @@ public struct FilterPins: Equatable, Sendable {
                 }
             }
         }
-        // Two different values can't both hold (or one is a narrower prefix); pin neither.
         self.init(
-            project: projects.count == 1 ? projects.first : nil,
+            project: Self.narrowest(projects),
             priority: priorities.count == 1 ? priorities.first : nil,
             tags: tags
         )
+    }
+
+    /// Every `project:` term is a prefix match, so `work` and `work.infra` together pin
+    /// `work.infra`. Values that aren't prefixes of one another can't both hold; pin neither.
+    static func narrowest(_ projects: Set<String>) -> String? {
+        guard let longest = projects.max(by: { $0.count < $1.count }),
+              projects.allSatisfy({ longest.hasPrefix($0) }) else { return nil }
+        return longest
     }
 
     /// The project badge's text: nil when it is the pinned project, the rest of the name for a
@@ -78,11 +85,20 @@ public struct FilterPins: Equatable, Sendable {
     /// `pr` alone is ambiguous) and modifiers (`project.is:`); nil for another word, a modifier
     /// that doesn't pin (`project.not:`) or an empty value (`project:` means no project).
     static func value(of attribute: String, in word: String) -> String? {
+        guard let (modifier, value) = term(of: attribute, word) else { return nil }
+        if let modifier, !pinningModifiers.contains(modifier) { return nil }
+        return value.isEmpty ? nil : value
+    }
+
+    /// True for any `attribute[.modifier]:value` word, whatever the modifier or value.
+    static func isTerm(of attribute: String, _ word: String) -> Bool {
+        term(of: attribute, word) != nil
+    }
+
+    private static func term(of attribute: String, _ word: String) -> (modifier: String?, value: String)? {
         guard let separator = word.firstIndex(where: { $0 == ":" || $0 == "=" }) else { return nil }
         let name = word[..<separator].lowercased().split(separator: ".", maxSplits: 1, omittingEmptySubsequences: false)
         guard let base = name.first, base.count >= 3, attribute.hasPrefix(base) else { return nil }
-        if name.count == 2, !pinningModifiers.contains(String(name[1])) { return nil }
-        let value = word[word.index(after: separator)...]
-        return value.isEmpty ? nil : String(value)
+        return (name.count == 2 ? String(name[1]) : nil, String(word[word.index(after: separator)...]))
     }
 }

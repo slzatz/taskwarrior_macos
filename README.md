@@ -43,6 +43,12 @@ expanded, and no other program can be run from the field.
   then project, priority and tag badges, and a short due date at the right (red when
   overdue). Badges that the context or filter already pin are left out: under the
   `work` context no row says `work`, and `work.infra` shows as `infra`.
+  The list's header is three menus, **report ▾ · context ▾ · project ▾**, followed by
+  any other words of the typed filter. Each builds a command line and runs it as if
+  typed (`task +ops project:work.infra all`), keeping the filter words the other menus
+  don't own. Picking a context runs `task context <name>`, which changes it for the
+  command line too, and shows the listing again without the old project. The
+  projects offered are those inside the context, nested by subproject.
   The rows are exactly the report's, in its order, with the context applied. Select
   a row and press **Space** (or right-click → Done) to mark it done; double-click or
   **Return** shows `information`; right-click also has start/stop, delete and Copy UUID.
@@ -110,8 +116,13 @@ TASKWARRIOR_APP_QUIT=1 \
 build/Taskwarrior.app/Contents/MacOS/Taskwarrior
 ```
 
-`TASKWARRIOR_APP_DUMP=1` additionally prints the view hierarchy and any
-confirmation the app would have asked for.
+A script line starting with `@` does what a header menu does, on the listing
+the lines before it produced: `@report ready`, `@project work.infra` (`@project -`
+for all projects), `@context personal` (`@context none`). `@context` runs
+`task context`, which writes to the rc file, so point `TASKRC` at a scratch copy.
+
+`TASKWARRIOR_APP_DUMP=1` additionally prints the view hierarchy, the header menus'
+choices and any confirmation the app would have asked for.
 
 ## Layout
 

@@ -16,7 +16,10 @@ working on the code.
   TASKDATA=/tmp/tw-scratch TASKWARRIOR_APP_SCRIPT="add project:work x;;1 done;;next" \
   TASKWARRIOR_APP_SNAPSHOT=/tmp/w.png TASKWARRIOR_APP_QUIT=1 build/Taskwarrior.app/Contents/MacOS/Taskwarrior
   ```
-  then look at the PNG. `TASKWARRIOR_APP_DUMP=1` prints the view hierarchy and any confirmation asked.
+  then look at the PNG. `TASKWARRIOR_APP_DUMP=1` prints the view hierarchy, the header menus'
+  choices and any confirmation asked. Script lines `@report x`, `@project x|-`, `@context x` act as
+  the header menus do (menus can't be opened from a script); `@context` writes the rc file, so
+  give it `TASKRC=<scratch copy of ~/.taskrc>`.
 - Never run mutating commands against the user's real data while testing; always set `TASKDATA`
   to a scratch directory. The user's `~/.taskrc` (context `work`, `bulk=0`, sync server) is still read.
 
@@ -72,6 +75,11 @@ after modifications or when the window geometry changes. Views are thin.
   `project:work` is a plain prefix in taskwarrior (it matches `workshop` too), so only an exact
   match is hidden and a subproject shows the rest of its name. The context filter is re-read
   with `_get` after context/config commands, since the startup config goes stale.
+- The header menus (`ListingView`) only compose a command line and `run(line:)` it: the report
+  word is replaced, the project term replaced (with operators in the typed filter, the whole
+  filter), other words kept. `_projects` and `_unique` ignore the context, so the project menu
+  filters by the context's pin itself. A context picked from the menu refreshes the view,
+  unlike a typed `task context`, and drops the typed project.
 - Row actions in the list call `AppModel.perform`, which goes through `run(line:)` with the
   task's UUID (ids are renumbered by the refresh after each modification), so the usual
   confirmation, log and refresh rules apply. Don't add a separate path.
@@ -131,8 +139,8 @@ Stage 2 is the structured view; the rest are candidates in rough priority order.
 5. **Quick-add form** – fields for description, project, due, tags, priority with autocompletion
    from `task _projects` / `_tags`; also a global hotkey or menu-bar item for capture.
 6. **Command-field autocompletion** – commands, report names, `project:`/`+tag` values.
-7. **Context and report switcher** – sidebar or popup listing contexts and reports; switching
-   context should not refresh until a listing is requested (current rule) unless the user opts in.
+7. **Context and report switcher (done as header menus)** – report, context and project menus
+   in the list header. Possible next steps: a tag menu, and the menus in the Raw view too.
 8. **Notifications** – due/overdue reminders via UNUserNotificationCenter.
 9. **Appearance** – optional light palette, font family choice, per-window state, multiple windows.
 10. **Undo affordance** – after done/delete, a transient "Undo" button in the status line.

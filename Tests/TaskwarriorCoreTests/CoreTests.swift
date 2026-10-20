@@ -259,7 +259,8 @@ final class FilterPinsTests: XCTestCase {
 
     func testConflictingValuesPinNeither() {
         XCTAssertNil(pins("project:work", "project:home").project)
-        XCTAssertNil(pins("project:work", "project:work.infra").project)
+        // Both are prefix matches, so the narrower one holds (the context plus a subproject).
+        XCTAssertEqual(pins("project:work", "project:work.infra").project, "work.infra")
         XCTAssertEqual(pins("project:work", "project.is:work").project, "work")
     }
 
@@ -274,5 +275,57 @@ final class FilterPinsTests: XCTestCase {
         XCTAssertNil(p.shownPriority("H"))
         XCTAssertEqual(p.shownPriority("L"), "L")
         XCTAssertEqual(p.shownTags(["review", "finance", "a"]), ["a", "review"])
+    }
+}
+
+final class ListingViewTests: XCTestCase {
+    func testSplitsTheTypedProject() {
+        let view = ListingView(report: "next", words: ["+finance", "pro:work.infra", "rc.verbose=0"])
+        XCTAssertEqual(view.project, "work.infra")
+        XCTAssertEqual(view.otherWords, ["+finance", "rc.verbose=0"])
+        XCTAssertEqual(view.filterText, "+finance")
+        XCTAssertEqual(view.tokens, ["+finance", "rc.verbose=0", "project:work.infra", "next"])
+    }
+
+    func testMenusChangeOnlyTheirPart() {
+        let view = ListingView(report: "next", words: ["+finance", "project:work"])
+        XCTAssertEqual(view.with(report: "ready").tokens, ["+finance", "project:work", "ready"])
+        XCTAssertEqual(view.with(project: "home").tokens, ["+finance", "project:home", "next"])
+        XCTAssertEqual(view.with(project: nil).tokens, ["+finance", "next"])
+    }
+
+    func testOtherProjectTermsAreReplacedWhenPicking() {
+        let view = ListingView(report: "next", words: ["project.not:fact", "+x"])
+        XCTAssertNil(view.project)
+        XCTAssertEqual(view.filterText, "project.not:fact +x")
+        XCTAssertEqual(view.with(project: "work").tokens, ["+x", "project:work", "next"])
+        XCTAssertNil(ListingView(report: "next", words: ["project:a", "project:b"]).project)
+    }
+
+    func testOperatorsAreReplacedWholeByAProject() {
+        let view = ListingView(report: "next", words: ["(project:a", "or", "+x)", "rc.context=none"])
+        XCTAssertNil(view.project)
+        XCTAssertEqual(view.with(project: "b").tokens, ["rc.context=none", "project:b", "next"])
+        XCTAssertEqual(view.with(report: "all").tokens, ["(project:a", "or", "+x)", "rc.context=none", "all"])
+    }
+
+    func testListableReports() {
+        let config = ["report.next.columns": "id", "report.ls.columns": "id", "report.facts.columns": "id",
+                      "report.next.filter": "x", "report.burndown.daily.description": "graph"]
+        let reports = ListingView.listableReports(config: config)
+        XCTAssertEqual(reports.main, ["facts", "next"])
+        XCTAssertEqual(reports.variants, ["ls"])
+    }
+
+    func testProjectTree() {
+        let tree = ProjectNode.tree(["work.infra.db", "home", "work"])
+        XCTAssertEqual(tree.map(\.name), ["home", "work"])
+        XCTAssertEqual(tree[1].children.map(\.name), ["work.infra"])
+        XCTAssertEqual(tree[1].children[0].children.map(\.label), ["db"])
+        // Under the work context only work's insides, as the top level.
+        let pinned = ProjectNode.tree(["personal", "work", "work.infra", "work.web"], under: "work")
+        XCTAssertEqual(pinned.map(\.name), ["work.infra", "work.web"])
+        XCTAssertEqual(ProjectNode.tree(["work", "workshop"], under: "work").map(\.name), ["work", "workshop"])
+        XCTAssertEqual(ProjectNode.tree(["work.infra.db", "work.web"], under: "work.infra").map(\.name), ["work.infra.db"])
     }
 }

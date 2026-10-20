@@ -5,7 +5,8 @@ import TaskwarriorCore
 /// Developer hooks driven by environment variables (see README, "Scripted runs"):
 ///   TASKWARRIOR_APP_SCRIPT   commands separated by ";;", run after startup; `@report <name>`,
 ///                            `@project <name>|-` and `@context <name>` act as the header menus do;
-///                            `@edit <id>` opens the row's description editor, `@edit <id> <text>` commits it
+///                            `@edit <id>` opens the row's description editor, `@edit <id> <text>` commits it;
+///                            `@keys <vim notation>` types into the window, e.g. `@keys ciwfoo<Esc><CR>`
 ///   TASKWARRIOR_APP_SNAPSHOT path of a PNG to write once the script has finished
 ///   TASKWARRIOR_APP_QUIT     "1" to quit after the script / snapshot
 /// Combine with TASKDATA / TASKRC to point taskwarrior at a scratch database.
@@ -36,6 +37,7 @@ enum DebugHooks {
             case "project": model.showProject(value == "-" ? nil : value)
             case "context": model.switchContext(value)
             case "edit": edit(value, model: model)
+            case "keys": await typeKeys(value)
             default: FileHandle.standardError.write(Data("script: unknown \(line)\n".utf8))
             }
         }
@@ -64,6 +66,34 @@ enum DebugHooks {
         } else {
             model.editingUUID = task.uuid
         }
+    }
+
+    /// Posts the keys as real key-down events, so they take the path typing does (key monitors,
+    /// then the first responder). Waits first for a view opened by the line before to take focus.
+    @MainActor
+    private static func typeKeys(_ notation: String) async {
+        try? await Task.sleep(for: .milliseconds(300))
+        guard let window = NSApp.windows.first(where: { $0.isVisible }) else { return }
+        for key in ViLineEditor.keys(notation) {
+            let (characters, keyCode, flags): (String, UInt16, NSEvent.ModifierFlags) = switch key {
+            case .char(let c): (String(c), 0xFFFF, [])
+            case .ctrl(let c): (String(c), 0xFFFF, .control)
+            case .escape: ("\u{1b}", 53, [])
+            case .enter: ("\r", 36, [])
+            case .backspace: ("\u{7f}", 51, [])
+            case .left: ("\u{F702}", 123, [])
+            case .right: ("\u{F703}", 124, [])
+            case .home: ("\u{F729}", 115, [])
+            case .end: ("\u{F72B}", 119, [])
+            }
+            guard let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: flags,
+                                               timestamp: ProcessInfo.processInfo.systemUptime,
+                                               windowNumber: window.windowNumber, context: nil,
+                                               characters: characters, charactersIgnoringModifiers: characters,
+                                               isARepeat: false, keyCode: keyCode) else { continue }
+            NSApp.postEvent(event, atStart: false)
+        }
+        try? await Task.sleep(for: .milliseconds(300))
     }
 
     @MainActor

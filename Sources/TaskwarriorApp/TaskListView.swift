@@ -257,15 +257,12 @@ private struct TaskRow: View {
     let pins: FilterPins
     let idDigits: Int
     let fontSize: Double
-    /// The description is a text field: Return commits, Esc or clicking elsewhere cancels.
+    /// The description is a vi-mode field (`ViLineField`): Return commits, Esc in normal mode or
+    /// clicking elsewhere cancels.
     let isEditing: Bool
     let commit: (String) -> Void
     let cancel: () -> Void
     let openNote: () -> Void
-
-    @State private var draft = ""
-    @State private var draftSelection: TextSelection?
-    @FocusState private var fieldFocused: Bool
 
     /// By name, so the one tag a row has room for is the same on every refresh.
     private var tags: [String] { pins.shownTags(task.tags) }
@@ -312,26 +309,8 @@ private struct TaskRow: View {
         .opacity(task.isCompleted || task.isDeleted ? 0.45 : 1)
     }
 
-    /// Starts with the description and the caret at its end. Focus is taken a turn later, once
-    /// the field is in the window, and the caret placed after that, since taking focus selects all.
     private var editor: some View {
-        TextField("Description", text: $draft, selection: $draftSelection)
-            .textFieldStyle(.plain)
-            .font(.system(size: fontSize + 1))
-            .focused($fieldFocused)
-            .onSubmit { commit(draft) }
-            .onExitCommand(perform: cancel)
-            .onChange(of: fieldFocused) { _, focused in
-                if focused {
-                    DispatchQueue.main.async { draftSelection = TextSelection(insertionPoint: draft.endIndex) }
-                } else {
-                    cancel()
-                }
-            }
-            .onAppear {
-                draft = task.description
-                DispatchQueue.main.async { fieldFocused = true }
-            }
+        ViLineField(initialText: task.description, fontSize: fontSize + 1, onCommit: commit, onCancel: cancel)
     }
 
     /// The id for typing commands (`5 done`), right-aligned in a column as wide as the widest

@@ -20,7 +20,9 @@ working on the code.
   choices and any confirmation asked. Script lines `@report x`, `@project x|-`, `@context x` act as
   the header menus do (menus can't be opened from a script); `@context` writes the rc file, so
   give it `TASKRC=<scratch copy of ~/.taskrc>`. `@edit <id>` opens a row's description editor,
-  `@edit <id> <text>` commits it.
+  `@edit <id> <text>` commits it, `@keys <vim notation>` posts real key events (`@keys cwnew<Esc><CR>`).
+  The context comes from the rc file, not `TASKDATA`: when scratch tasks don't show, the real
+  `~/.taskrc` is probably in another context, so use a scratch copy with `task context none`.
 - Never run mutating commands against the user's real data while testing; always set `TASKDATA`
   to a scratch directory. The user's `~/.taskrc` (context `work`, `bulk=0`, sync server) is still read.
 
@@ -89,6 +91,14 @@ after modifications or when the window geometry changes. Views are thin.
   keeps a single `description:` argv whole (`+x`, `due:`, `--`, a leading `-` stay text), whereas
   bare words after `modify` would be parsed as attributes and tags. While editing, the list's
   `onKeyPress` handlers return `.ignored`: they sit above the text field and could take its keys.
+- The description field is vi-mode (`ViLineField` + `TaskwarriorCore/ViLineEditor`, starting in
+  normal mode). `ViLineEditor` is the only owner of text and cursor; the field is a display. A
+  local `NSEvent` key monitor reads the field editor's text and caret into the editor before each
+  key and writes them back after, with the normal-mode cursor as a one-character selection. In
+  insert mode the monitor takes only Esc, Return, Ctrl-W and Ctrl-U and the field types natively
+  (input methods, dead keys); Esc recovers the typed text by diffing, for `.`. Keep vi behaviour
+  in `ViLineEditor` with a test, not in the view. Not supported: visual mode, registers other
+  than the unnamed one, marks, macros.
 - **vimango notes are linked by the task's uuid**, the protocol taskchamp and VimNotes use on iOS
   (`TaskwarriorCore/VimangoLink.swift`). "Open/Create vimango Note" (row menu, or a click on the
   indigo icon) opens `vimango://task-note?uuid=&title=&project=`. vimango_hybrid finds the note
@@ -137,11 +147,8 @@ Stage 2 is the structured view; the rest are candidates in rough priority order.
 2. **Auto-sync** – debounced `task sync` a few seconds after any modification, plus periodic pull
    (e.g. every 10 min and on app activation); spinner and last-sync time in the status line;
    failures surface once, not on every retry.
-3. **In-place editing** – the description is done (plain SwiftUI `TextField`). Next, in rough
-   order: due / project the same way; then vi keys for the field as a pure-Swift
-   `ViLineEditor` in `TaskwarriorCore` (text + cursor + mode → state; readline-vi motions,
-   `d c y` + `iw aw`, counts, `u`, `.`), with the Swift state the only owner of the cursor and
-   insert mode handed to the field editor so IME still works. Decided against libvim for this:
+3. **In-place editing** – the description is done, with vi keys (`ViLineEditor`). Next: due /
+   project the same way, perhaps a mode indicator, maybe `v` (visual) mode. Decided against libvim for this:
    vimango_macos's libvim + NSTextView editor failed on caret/cursor sync
    (`~/vimango_hybrid/PLAN.md`), and a C dependency is too much for one line. Revisit (starting from
    vimango_macos's `CLibVim` shim, self-drawn view) only if registers or macros are ever wanted.

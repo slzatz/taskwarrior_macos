@@ -221,3 +221,58 @@ final class ReportQueryTests: XCTestCase {
         XCTAssertEqual(ReportQuery.exportArguments(uuids: [a]), [a, "export"])
     }
 }
+
+final class FilterPinsTests: XCTestCase {
+    private func pins(_ sources: String...) -> FilterPins {
+        FilterPins(sources: sources.map(ShellTokenizer.tokenize))
+    }
+
+    func testContextReportAndTypedFilter() {
+        let p = pins("project:work", "status:pending -WAITING project.not:fact limit:page", "+finance pri:H")
+        XCTAssertEqual(p, FilterPins(project: "work", priority: "H", tags: ["finance"]))
+    }
+
+    func testAbbreviationsAndModifiers() {
+        XCTAssertEqual(pins("pro:work").project, "work")
+        XCTAssertEqual(pins("proj.is:work").project, "work")
+        XCTAssertEqual(pins("project=work").project, "work")
+        XCTAssertEqual(pins("priority.equals:M").priority, "M")
+        // "pr" is ambiguous; .not and .has don't pin; an empty value means "no project".
+        XCTAssertNil(pins("pr:work").project)
+        XCTAssertNil(pins("project.not:work").project)
+        XCTAssertNil(pins("project.has:wor").project)
+        XCTAssertNil(pins("project:").project)
+        XCTAssertNil(pins("due:tomorrow description:pro").project)
+        XCTAssertEqual(pins("-home +work").tags, ["work"])
+        XCTAssertEqual(pins("rc.context=none +x").tags, ["x"])
+    }
+
+    func testOperatorsPinNothingInTheirSource() {
+        XCTAssertEqual(pins("project:a or project:b"), FilterPins())
+        XCTAssertEqual(pins("(project:a +x)"), FilterPins())
+        XCTAssertEqual(pins("!+x"), FilterPins())
+        XCTAssertEqual(pins("not +x"), FilterPins())
+        // Sources are ANDed, so the plain one still pins.
+        XCTAssertEqual(pins("project:a or +x", "project:work"), FilterPins(project: "work"))
+        XCTAssertEqual(pins("project:a and +x").project, "a")
+    }
+
+    func testConflictingValuesPinNeither() {
+        XCTAssertNil(pins("project:work", "project:home").project)
+        XCTAssertNil(pins("project:work", "project:work.infra").project)
+        XCTAssertEqual(pins("project:work", "project.is:work").project, "work")
+    }
+
+    func testShownBadges() {
+        let p = FilterPins(project: "work", priority: "H", tags: ["finance"])
+        XCTAssertNil(p.shownProject("work"))
+        XCTAssertEqual(p.shownProject("work.infra"), "infra")
+        // project:work also matches workshop, which isn't a subproject.
+        XCTAssertEqual(p.shownProject("workshop"), "workshop")
+        XCTAssertNil(p.shownProject(nil))
+        XCTAssertEqual(FilterPins().shownProject("work.infra"), "work.infra")
+        XCTAssertNil(p.shownPriority("H"))
+        XCTAssertEqual(p.shownPriority("L"), "L")
+        XCTAssertEqual(p.shownTags(["review", "finance", "a"]), ["a", "review"])
+    }
+}

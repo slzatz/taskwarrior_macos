@@ -39,8 +39,10 @@ arguments) and handed straight to the `task` binary. Globs, `$VARIABLES`, pipes,
 expanded, and no other program can be run from the field.
 
 - **List / Raw** (the switch in the output pane header, or **⌘1** / **⌘2**) chooses how
-  reports are drawn. List shows each task as a row: description in the system font,
-  then project, priority and tag badges and a short due date (red when overdue).
+  reports are drawn. List shows each task as one line: description in the system font,
+  then project, priority and tag badges, and a short due date at the right (red when
+  overdue). Badges that the context or filter already pin are left out: under the
+  `work` context no row says `work`, and `work.infra` shows as `infra`.
   The rows are exactly the report's, in its order, with the context applied. Select
   a row and press **Space** (or right-click → Done) to mark it done; double-click or
   **Return** shows `information`; right-click also has start/stop, delete and Copy UUID.
@@ -122,6 +124,7 @@ Sources/TaskwarriorCore   no UI; unit-tested
   TaskRunner.swift        runs the task binary
   TaskItem.swift          one task decoded from `task export`
   ReportQuery.swift       which reports can be listed; the uuid-listing + export queries
+  FilterPins.swift        the project/priority/tags a listing's filters pin, so rows skip them
   TaskEnvironment.swift   reads the user's relevant rc settings
 Sources/TaskwarriorApp    SwiftUI + AppKit
   AppModel.swift          all state; serial command queue; geometry -> defaultwidth/height

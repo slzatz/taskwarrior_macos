@@ -39,6 +39,8 @@ final class AppModel {
     private(set) var tasks: [TaskItem]?
     /// Heading above the list, e.g. `next · project:work`.
     private(set) var listTitle = ""
+    /// What the context and filters pin for every task in the list, so rows leave it out.
+    private(set) var listPins = FilterPins()
     var displayMode: DisplayMode {
         didSet {
             guard displayMode != oldValue else { return }
@@ -54,6 +56,8 @@ final class AppModel {
     private(set) var statusIsError = false
     var logExpanded: Bool { didSet { defaults.set(logExpanded, forKey: Keys.logExpanded) } }
     private(set) var currentContext = ""
+    /// The current context's read filter, e.g. `project:work`; empty without a context.
+    private var contextFilter = ""
     private(set) var isRunning = false
     var pendingConfirmation: Confirmation?
 
@@ -123,6 +127,7 @@ final class AppModel {
         }
         environment = env
         currentContext = env.context
+        contextFilter = env.config["context.\(env.context).read"] ?? env.config["context.\(env.context)"] ?? ""
         runner = TaskRunner(executable: executable, baseOverrides: env.baseOverrides)
 
         // Wait briefly for the view to report its size so the first listing fits the window.
@@ -346,12 +351,28 @@ final class AppModel {
         }
         displayIsRefresh = remember && currentView?.tokens == parsed.tokens
         tasks = items
-        listTitle = ([report] + parsed.filter.filter { !$0.hasPrefix("rc.") && !$0.hasPrefix("rc:") }).joined(separator: " · ")
+        // Words after a report's name filter it too (`next +finance`).
+        let typed = parsed.filter + parsed.arguments
+        listTitle = ([report] + typed.filter { !$0.hasPrefix("rc.") && !$0.hasPrefix("rc:") }).joined(separator: " · ")
+        listPins = FilterPins(sources: listingFilters(report: report, typed: typed))
         displayGeneration += 1
         if remember { currentView = parsed }
         let note = uuids.isEmpty ? output.combinedOutput : output.stderr
         setStatus(command: parsed.displayString, text: note, isError: false)
         return true
+    }
+
+    /// The filters taskwarrior ANDs for a listing: the report's own, the typed one, and the
+    /// context's unless the report opts out of it or an `rc.context` override changes it.
+    private func listingFilters(report: String, typed: [String]) -> [[String]] {
+        let config = environment?.config ?? [:]
+        var sources = [ShellTokenizer.tokenize(config["report.\(report).filter"] ?? ""), typed]
+        let ignoresContext = ["0", "no", "off", "false"].contains(config["report.\(report).context"]?.lowercased() ?? "")
+        let overridden = typed.contains { $0.hasPrefix("rc.context") || $0.hasPrefix("rc:context") }
+        if !ignoresContext, !overridden {
+            sources.append(ShellTokenizer.tokenize(contextFilter))
+        }
+        return sources
     }
 
     private func runInBackground(_ runner: TaskRunner, arguments: [String], extra: [String] = []) async -> Result<TaskResult, Error> {
@@ -373,9 +394,18 @@ final class AppModel {
         guard let runner else { return }
         let quiet = TaskRunner(executable: runner.executable, baseOverrides: ["rc.verbose=nothing"])
         let result = await Task.detached { try? quiet.run(["_get", "rc.context"]) }.value
-        if let result, result.succeeded {
-            currentContext = result.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let result, result.succeeded else { return }
+        currentContext = result.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Read now rather than from the startup config, which a `context define` makes stale.
+        // `_get` prints nothing for a missing key; `context.<name>` is the pre-2.6 spelling.
+        var filter = ""
+        if !currentContext.isEmpty, currentContext != "none" {
+            for key in ["rc.context.\(currentContext).read", "rc.context.\(currentContext)"] where filter.isEmpty {
+                let value = await Task.detached { try? quiet.run(["_get", key]) }.value
+                filter = value?.stdout.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            }
         }
+        contextFilter = filter
     }
 
     // MARK: - Helpers

@@ -65,6 +65,13 @@ after modifications or when the window geometry changes. Views are thin.
   report's filter and sort but **ignores the context**. An empty UUID list must never reach
   `export` (no filter exports every task). Only reports with `report.<name>.columns` are
   listable (`ReportQuery.listableReport`); everything else falls back to the text view.
+- Rows leave out badges the listing's filters pin (`FilterPins`): the context's read filter, the
+  report's `filter` and the typed words, including those after the report name (`next +x`).
+  Taskwarrior ANDs these sources, so each is read alone and one with `or`, `not`, `!` or
+  parentheses pins nothing; missing a pin only shows a badge, a wrong pin hides information.
+  `project:work` is a plain prefix in taskwarrior (it matches `workshop` too), so only an exact
+  match is hidden and a subproject shows the rest of its name. The context filter is re-read
+  with `_get` after context/config commands, since the startup config goes stale.
 - Row actions in the list call `AppModel.perform`, which goes through `run(line:)` with the
   task's UUID (ids are renumbered by the refresh after each modification), so the usual
   confirmation, log and refresh rules apply. Don't add a separate path.
@@ -110,9 +117,9 @@ after modifications or when the window geometry changes. Views are thin.
 
 Stage 2 is the structured view; the rest are candidates in rough priority order.
 
-1. **Structured list view (started)** – `TaskListView` draws taskchamp-style rows with a context
-   menu; List/Raw toggle (⌘1/⌘2). The done checkbox was removed on trial (Space and the menu
-   still mark done). Next: detail pane, grouping by project/due bucket, scheduled/wait hints.
+1. **Structured list view (started)** – `TaskListView` draws taskchamp-style one-line rows with a
+   context menu, hiding pinned badges; List/Raw toggle (⌘1/⌘2). The done checkbox was removed
+   on trial (Space and the menu still mark done). Next: detail pane, grouping by project/due bucket, scheduled/wait hints.
 2. **Auto-sync** – debounced `task sync` a few seconds after any modification, plus periodic pull
    (e.g. every 10 min and on app activation); spinner and last-sync time in the status line;
    failures surface once, not on every retry.

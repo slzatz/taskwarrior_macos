@@ -22,7 +22,7 @@ struct TaskListView: View {
             ScrollViewReader { proxy in
                 List(selection: $selection) {
                     ForEach(tasks) { task in
-                        TaskRow(task: task, fontSize: fontSize) { model.openVimangoNote(for: task) }
+                        TaskRow(task: task, pins: model.listPins, fontSize: fontSize) { model.openVimangoNote(for: task) }
                             .tag(task.uuid)
                             .id(task.uuid)
                     }
@@ -99,11 +99,13 @@ struct TaskListView: View {
 
 private struct TaskRow: View {
     let task: TaskItem
+    /// What the context and filters pin. Every row would repeat it, so it gets no badge.
+    let pins: FilterPins
     let fontSize: Double
     let openNote: () -> Void
 
     /// By name, so the one tag a row has room for is the same on every refresh.
-    private var tags: [String] { task.tags.sorted() }
+    private var tags: [String] { pins.shownTags(task.tags) }
 
     /// One line, as in taskchamp: the description and its icons, followed by its badges, then
     /// the due date and note slot at the right edge. The badges and the right edge are laid out
@@ -142,10 +144,10 @@ private struct TaskRow: View {
 
     private var badges: some View {
         HStack(alignment: .firstTextBaseline, spacing: 4) {
-            if let project = task.project {
+            if let project = pins.shownProject(task.project) {
                 Badge(text: project, color: .blue, fontSize: fontSize, maxWidth: 120)
             }
-            if let priority = task.priority, let color = priorityColor(priority) {
+            if let priority = pins.shownPriority(task.priority), let color = priorityColor(priority) {
                 Badge(text: priority, color: color, fontSize: fontSize, tintedText: true)
             }
             // Room for one tag; the rest are counted, and named in the count's tooltip.

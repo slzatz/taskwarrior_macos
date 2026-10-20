@@ -310,6 +310,17 @@ private struct TaskRow: View {
                     .font(.system(size: fontSize - 2))
                     .foregroundStyle(dueColor(due))
                     .lineLimit(1)
+            } else if let scheduled = task.scheduled {
+                // Without a due date, when it's scheduled (the facts report's "Next" column),
+                // marked so it doesn't read as a due date.
+                HStack(alignment: .firstTextBaseline, spacing: 3) {
+                    Image(systemName: "calendar")
+                    Text(DueText.format(scheduled))
+                }
+                .font(.system(size: fontSize - 2))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .help("Scheduled")
             }
             noteSlot
         }

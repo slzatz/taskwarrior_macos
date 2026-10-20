@@ -42,7 +42,8 @@ expanded, and no other program can be run from the field.
   reports are drawn. List shows each task as one line: its id (for typing `5 done`;
   blank for completed and deleted tasks), the description in the system font,
   then project, priority and tag badges, and a short due date at the right (red when
-  overdue). Badges that the context or filter already pin are left out: under the
+  overdue). A task with no due date shows its scheduled date there instead, after a
+  calendar glyph, so the `facts`-style reports read as they do in Raw. Badges that the context or filter already pin are left out: under the
   `work` context no row says `work`, and `work.infra` shows as `infra`.
   The list's header is three menus, **report ▾ · context ▾ · project ▾**, followed by
   any other words of the typed filter. Each builds a command line and runs it as if

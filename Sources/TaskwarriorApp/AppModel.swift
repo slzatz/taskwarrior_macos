@@ -36,11 +36,17 @@ final class AppModel {
     /// The listing command that is re-run after modifications (e.g. `task project:work next`).
     private(set) var currentView: ParsedCommand?
     /// The current report's tasks when it is shown as a list; nil when `display` text is shown.
-    private(set) var tasks: [TaskItem]?
+    private(set) var tasks: [TaskItem]? {
+        didSet {
+            if let uuid = editingUUID, tasks?.contains(where: { $0.uuid == uuid }) != true { editingUUID = nil }
+        }
+    }
     /// The listing behind the list, split into what the header menus change.
     private(set) var listing: ListingView?
     /// What the context and filters pin for every task in the list, so rows leave it out.
     private(set) var listPins = FilterPins()
+    /// The task whose description is being edited in its row, if any.
+    var editingUUID: String?
     /// Every project (`task _projects`, which ignores the context), for the header's menu.
     private(set) var projects: [String] = []
     /// Defined contexts (`task _context`), for the header's menu.
@@ -250,6 +256,15 @@ final class AppModel {
     /// used because ids are renumbered by the refresh that follows each modification.
     func perform(_ command: String, on task: TaskItem) {
         run(line: "\(task.uuid) \(command)")
+    }
+
+    /// Replaces the task's description with `text`, from the row's inline editor. The text goes
+    /// through as one `description:` argument, so words in it like `+x` or `due:` stay text.
+    /// Nothing runs when it is empty or unchanged.
+    func setDescription(_ text: String, of task: TaskItem) {
+        let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty, text != task.description else { return }
+        perform("modify " + ShellTokenizer.join(["description:" + text]), on: task)
     }
 
     /// Opens (or has vimango create) the task's note via `vimango://task-note`, as taskchamp's

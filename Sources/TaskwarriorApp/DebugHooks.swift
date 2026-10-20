@@ -4,7 +4,8 @@ import TaskwarriorCore
 
 /// Developer hooks driven by environment variables (see README, "Scripted runs"):
 ///   TASKWARRIOR_APP_SCRIPT   commands separated by ";;", run after startup; `@report <name>`,
-///                            `@project <name>|-` and `@context <name>` act as the header menus do
+///                            `@project <name>|-` and `@context <name>` act as the header menus do;
+///                            `@edit <id>` opens the row's description editor, `@edit <id> <text>` commits it
 ///   TASKWARRIOR_APP_SNAPSHOT path of a PNG to write once the script has finished
 ///   TASKWARRIOR_APP_QUIT     "1" to quit after the script / snapshot
 /// Combine with TASKDATA / TASKRC to point taskwarrior at a scratch database.
@@ -34,6 +35,7 @@ enum DebugHooks {
             case "report": model.showReport(value)
             case "project": model.showProject(value == "-" ? nil : value)
             case "context": model.switchContext(value)
+            case "edit": edit(value, model: model)
             default: FileHandle.standardError.write(Data("script: unknown \(line)\n".utf8))
             }
         }
@@ -45,6 +47,22 @@ enum DebugHooks {
             model.pendingConfirmation = nil
             try? await Task.sleep(for: .milliseconds(200))
             exit(0)
+        }
+    }
+
+    /// `<id>` opens the description editor as `e` does; `<id> <text>` commits as Return does.
+    @MainActor
+    private static func edit(_ value: String, model: AppModel) {
+        let parts = value.split(separator: " ", maxSplits: 1).map(String.init)
+        guard let number = parts.first.flatMap(Int.init),
+              let task = model.tasks?.first(where: { $0.number == number }) else {
+            FileHandle.standardError.write(Data("script: no task \(value) in the list\n".utf8))
+            return
+        }
+        if parts.count > 1 {
+            model.setDescription(parts[1], of: task)
+        } else {
+            model.editingUUID = task.uuid
         }
     }
 

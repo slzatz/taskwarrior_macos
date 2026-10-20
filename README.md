@@ -6,7 +6,7 @@ exactly as the terminal would print it (colours included); the field at the
 bottom accepts any taskwarrior command; an output pane in between shows what
 non-report commands said.
 
-Requirements: macOS 14+, Xcode 15+ command line tools, taskwarrior 3.x on the
+Requirements: macOS 15+, Xcode 15+ command line tools, taskwarrior 3.x on the
 machine (`brew install task`).
 
 ## Build and run
@@ -55,6 +55,9 @@ expanded, and no other program can be run from the field.
   The rows are exactly the report's, in its order, with the context applied. Select
   a row and press **Space** (or right-click → Done) to mark it done; double-click or
   **Return** shows `information`; right-click also has start/stop, delete and Copy UUID.
+  **e** (or right-click → Edit Description) edits the description in its row: **Return**
+  saves it with `task <uuid> modify description:…`, **Esc** or clicking away cancels.
+  The text is passed as one argument, so `+tag` or `due:` in it stays text.
   Graphs, `information` and other non-task output always use the raw view. The list
   follows the system light/dark appearance; the raw view stays dark because
   taskwarrior's colours assume a black terminal.
@@ -123,6 +126,8 @@ A script line starting with `@` does what a header menu does, on the listing
 the lines before it produced: `@report ready`, `@project work.infra` (`@project -`
 for all projects), `@context personal` (`@context none`). `@context` runs
 `task context`, which writes to the rc file, so point `TASKRC` at a scratch copy.
+`@edit 3` opens task 3's description editor as **e** does; `@edit 3 new text` saves
+`new text` as Return would.
 
 `TASKWARRIOR_APP_DUMP=1` additionally prints the view hierarchy, the header menus'
 choices and any confirmation the app would have asked for.
@@ -155,6 +160,6 @@ Sources/TaskwarriorApp    SwiftUI + AppKit
    refresh rules, output pane, confirmations, font zoom, geometry-aware reports.
 2. **Structured view (started):** reports are drawn as native rows with a
    context menu. Next: a detail pane for the selected task,
-   inline editing, keyboard navigation, grouping by project or due date.
+   editing other fields in place, keyboard navigation, grouping by project or due date.
 3. **Quick-add form** with project/tag completion.
 4. Optional light theme / font choice; auto-sync on a timer.

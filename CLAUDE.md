@@ -1,7 +1,7 @@
 # CLAUDE.md
 
 Native macOS window around the `task` CLI (taskwarrior 3.x). Swift package,
-macOS 14+, SwiftUI shell with AppKit where SwiftUI is unreliable (text view,
+macOS 15+ (only the current macOS matters), SwiftUI shell with AppKit where SwiftUI is unreliable (text view,
 command field). See README.md for user-facing behaviour; this file is for
 working on the code.
 
@@ -19,7 +19,8 @@ working on the code.
   then look at the PNG. `TASKWARRIOR_APP_DUMP=1` prints the view hierarchy, the header menus'
   choices and any confirmation asked. Script lines `@report x`, `@project x|-`, `@context x` act as
   the header menus do (menus can't be opened from a script); `@context` writes the rc file, so
-  give it `TASKRC=<scratch copy of ~/.taskrc>`.
+  give it `TASKRC=<scratch copy of ~/.taskrc>`. `@edit <id>` opens a row's description editor,
+  `@edit <id> <text>` commits it.
 - Never run mutating commands against the user's real data while testing; always set `TASKDATA`
   to a scratch directory. The user's `~/.taskrc` (context `work`, `bulk=0`, sync server) is still read.
 
@@ -83,6 +84,11 @@ after modifications or when the window geometry changes. Views are thin.
 - Row actions in the list call `AppModel.perform`, which goes through `run(line:)` with the
   task's UUID (ids are renumbered by the refresh after each modification), so the usual
   confirmation, log and refresh rules apply. Don't add a separate path.
+- Inline description editing (`e` / Edit Description, `AppModel.editingUUID`) commits
+  `modify description:<text>` as **one** token, quoted with `ShellTokenizer.join`. Taskwarrior 3
+  keeps a single `description:` argv whole (`+x`, `due:`, `--`, a leading `-` stay text), whereas
+  bare words after `modify` would be parsed as attributes and tags. While editing, the list's
+  `onKeyPress` handlers return `.ignored`: they sit above the text field and could take its keys.
 - **vimango notes are linked by the task's uuid**, the protocol taskchamp and VimNotes use on iOS
   (`TaskwarriorCore/VimangoLink.swift`). "Open/Create vimango Note" (row menu, or a click on the
   indigo icon) opens `vimango://task-note?uuid=&title=&project=`. vimango_hybrid finds the note
@@ -131,8 +137,14 @@ Stage 2 is the structured view; the rest are candidates in rough priority order.
 2. **Auto-sync** – debounced `task sync` a few seconds after any modification, plus periodic pull
    (e.g. every 10 min and on app activation); spinner and last-sync time in the status line;
    failures surface once, not on every retry.
-3. **In-place editing** – double-click description / due / project cell to edit; commit via
-   `task <uuid> modify ...`; Esc cancels.
+3. **In-place editing** – the description is done (plain SwiftUI `TextField`). Next, in rough
+   order: due / project the same way; then vi keys for the field as a pure-Swift
+   `ViLineEditor` in `TaskwarriorCore` (text + cursor + mode → state; readline-vi motions,
+   `d c y` + `iw aw`, counts, `u`, `.`), with the Swift state the only owner of the cursor and
+   insert mode handed to the field editor so IME still works. Decided against libvim for this:
+   vimango_macos's libvim + NSTextView editor failed on caret/cursor sync
+   (`~/vimango_hybrid/PLAN.md`), and a C dependency is too much for one line. Revisit (starting from
+   vimango_macos's `CLibVim` shim, self-drawn view) only if registers or macros are ever wanted.
 4. **Row actions** – keyboard selection (j/k or arrows) with shortcuts for done, start/stop,
    delete; context menu with annotate, priority, due, tags; selected task drives a detail pane
    showing `task <uuid> information`.

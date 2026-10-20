@@ -49,11 +49,12 @@ public enum ShellTokenizer {
         return tokens
     }
 
-    /// Re-quotes tokens for display (the inverse of `tokenize`, approximately).
+    /// Re-quotes tokens so `tokenize` gives them back unchanged; used for display and to pass
+    /// free text (an edited description) through a command line as one argument.
     public static func join(_ tokens: [String]) -> String {
         tokens.map { token in
             if token.isEmpty { return "\"\"" }
-            if token.contains(where: { $0 == " " || $0 == "\"" || $0 == "'" || $0 == "\\" }) {
+            if token.contains(where: { $0.isWhitespace || $0 == "\"" || $0 == "'" || $0 == "\\" }) {
                 let escaped = token.replacingOccurrences(of: "\\", with: "\\\\")
                     .replacingOccurrences(of: "\"", with: "\\\"")
                 return "\"\(escaped)\""

@@ -12,6 +12,8 @@ struct TaskListView: View {
     var preserveScroll: Bool
 
     @State private var selection: String?
+    /// Takes focus back from a row's description editor when it closes, so the keys work again.
+    @FocusState private var listFocused: Bool
 
     private var fontSize: Double { model.fontSize }
 
@@ -29,7 +31,13 @@ struct TaskListView: View {
             ScrollViewReader { proxy in
                 List(selection: $selection) {
                     ForEach(tasks) { task in
-                        TaskRow(task: task, pins: model.listPins, idDigits: idDigits, fontSize: fontSize) {
+                        TaskRow(task: task, pins: model.listPins, idDigits: idDigits, fontSize: fontSize,
+                                isEditing: model.editingUUID == task.uuid,
+                                commit: { text in
+                                    endEditing(task)
+                                    model.setDescription(text, of: task)
+                                },
+                                cancel: { endEditing(task) }) {
                             model.openVimangoNote(for: task)
                         }
                             .tag(task.uuid)
@@ -37,20 +45,29 @@ struct TaskListView: View {
                     }
                 }
                 .listStyle(.inset)
+                .focused($listFocused)
                 .alternatingRowBackgrounds(.disabled)
                 .contextMenu(forSelectionType: String.self) { uuids in
                     if let task = task(for: uuids) { menu(for: task) }
                 } primaryAction: { uuids in
                     if let task = task(for: uuids) { model.perform("information", on: task) }
                 }
+                // While a description is edited its keys belong to the text field.
                 .onKeyPress(.space) {
-                    guard let task = task(for: selection.map { [$0] } ?? []), task.isPending else { return .ignored }
+                    guard model.editingUUID == nil,
+                          let task = task(for: selection.map { [$0] } ?? []), task.isPending else { return .ignored }
                     model.perform("done", on: task)
                     return .handled
                 }
                 .onKeyPress(.return) {
-                    guard let task = task(for: selection.map { [$0] } ?? []) else { return .ignored }
+                    guard model.editingUUID == nil, let task = task(for: selection.map { [$0] } ?? []) else { return .ignored }
                     model.perform("information", on: task)
+                    return .handled
+                }
+                .onKeyPress(keys: ["e"]) { press in
+                    guard press.modifiers.isEmpty, model.editingUUID == nil,
+                          let task = task(for: selection.map { [$0] } ?? []), !task.isDeleted else { return .ignored }
+                    model.editingUUID = task.uuid
                     return .handled
                 }
                 .onChange(of: generation) {
@@ -159,6 +176,13 @@ struct TaskListView: View {
         Toggle(title, isOn: Binding(get: { isOn }, set: { _ in action(title) }))
     }
 
+    /// Closes `task`'s editor unless another row's has opened since (its focus loss comes late).
+    private func endEditing(_ task: TaskItem) {
+        guard model.editingUUID == task.uuid else { return }
+        model.editingUUID = nil
+        listFocused = true
+    }
+
     private func task(for uuids: Set<String>) -> TaskItem? {
         guard uuids.count == 1, let uuid = uuids.first else { return nil }
         return tasks.first { $0.uuid == uuid }
@@ -171,6 +195,12 @@ struct TaskListView: View {
             Button(task.isActive ? "Stop" : "Start") { model.perform(task.isActive ? "stop" : "start", on: task) }
         }
         Button("Show Info") { model.perform("information", on: task) }
+        if !task.isDeleted {
+            Button("Edit Description") {
+                selection = task.uuid
+                model.editingUUID = task.uuid
+            }
+        }
         Button(task.hasVimangoNote ? "Open vimango Note" : "Create vimango Note") { model.openVimangoNote(for: task) }
         Divider()
         Button("Copy UUID") {
@@ -227,7 +257,15 @@ private struct TaskRow: View {
     let pins: FilterPins
     let idDigits: Int
     let fontSize: Double
+    /// The description is a text field: Return commits, Esc or clicking elsewhere cancels.
+    let isEditing: Bool
+    let commit: (String) -> Void
+    let cancel: () -> Void
     let openNote: () -> Void
+
+    @State private var draft = ""
+    @State private var draftSelection: TextSelection?
+    @FocusState private var fieldFocused: Bool
 
     /// By name, so the one tag a row has room for is the same on every refresh.
     private var tags: [String] { pins.shownTags(task.tags) }
@@ -240,12 +278,16 @@ private struct TaskRow: View {
             if idDigits > 0 {
                 idColumn
             }
-            Text(task.description)
-                .font(.system(size: fontSize + 1))
-                .lineLimit(1)
-                .truncationMode(.tail)
-                .strikethrough(task.isDeleted, color: .red)
-                .help(task.description)
+            if isEditing {
+                editor
+            } else {
+                Text(task.description)
+                    .font(.system(size: fontSize + 1))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .strikethrough(task.isDeleted, color: .red)
+                    .help(task.description)
+            }
             if task.isActive {
                 Image(systemName: "play.fill")
                     .font(.system(size: fontSize - 2))
@@ -268,6 +310,28 @@ private struct TaskRow: View {
         .alignmentGuide(.listRowSeparatorLeading) { $0[.leading] }
         .padding(.vertical, 2)
         .opacity(task.isCompleted || task.isDeleted ? 0.45 : 1)
+    }
+
+    /// Starts with the description and the caret at its end. Focus is taken a turn later, once
+    /// the field is in the window, and the caret placed after that, since taking focus selects all.
+    private var editor: some View {
+        TextField("Description", text: $draft, selection: $draftSelection)
+            .textFieldStyle(.plain)
+            .font(.system(size: fontSize + 1))
+            .focused($fieldFocused)
+            .onSubmit { commit(draft) }
+            .onExitCommand(perform: cancel)
+            .onChange(of: fieldFocused) { _, focused in
+                if focused {
+                    DispatchQueue.main.async { draftSelection = TextSelection(insertionPoint: draft.endIndex) }
+                } else {
+                    cancel()
+                }
+            }
+            .onAppear {
+                draft = task.description
+                DispatchQueue.main.async { fieldFocused = true }
+            }
     }
 
     /// The id for typing commands (`5 done`), right-aligned in a column as wide as the widest

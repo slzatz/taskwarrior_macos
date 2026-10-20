@@ -13,6 +13,11 @@ final class TokenizerTests: XCTestCase {
         let tokens = ["add", "Buy milk", "due:tomorrow"]
         XCTAssertEqual(ShellTokenizer.tokenize(ShellTokenizer.join(tokens)), tokens)
     }
+
+    func testJoinKeepsFreeTextOneToken() {
+        let tokens = ["modify", #"description:say "hi", it's a\b +x project:y"#, "description:tab\there", "description:-x -- y", ""]
+        XCTAssertEqual(ShellTokenizer.tokenize(ShellTokenizer.join(tokens)), tokens)
+    }
 }
 
 final class ParsedCommandTests: XCTestCase {

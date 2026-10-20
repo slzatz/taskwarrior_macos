@@ -2,8 +2,8 @@ import AppKit
 import SwiftUI
 import TaskwarriorCore
 
-/// The current report drawn as native rows (styled after taskchamp's task cells):
-/// description in the system font, then project / priority / tag badges and a short due date.
+/// The current report drawn as native one-line rows (styled after taskchamp's task cells):
+/// description in the system font, its project / priority / tag badges, and a short due date.
 /// Follows the system appearance, unlike the verbatim text view.
 struct TaskListView: View {
     @Environment(AppModel.self) private var model
@@ -102,65 +102,93 @@ private struct TaskRow: View {
     let fontSize: Double
     let openNote: () -> Void
 
-    private var hasDetails: Bool {
-        task.project != nil || task.priority != nil || !task.tags.isEmpty || task.due != nil
-    }
+    /// By name, so the one tag a row has room for is the same on every refresh.
+    private var tags: [String] { task.tags.sorted() }
 
+    /// One line, as in taskchamp: the description and its icons, followed by its badges, then
+    /// the due date and note slot at the right edge. The badges and the right edge are laid out
+    /// first, so a long description is what gets cut short; its tooltip has the full text.
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text(task.description)
-                    .font(.system(size: fontSize + 1))
-                    .lineLimit(2)
-                    .strikethrough(task.isDeleted, color: .red)
-                if task.isActive {
-                    Image(systemName: "play.fill")
-                        .font(.system(size: fontSize - 2))
-                        .foregroundStyle(.tint)
-                        .help("Active")
-                }
-                if task.isRecurring {
-                    Image(systemName: "arrow.triangle.2.circlepath")
-                        .font(.system(size: fontSize - 2))
-                        .foregroundStyle(.secondary)
-                        .help("Recurring")
-                }
-                Spacer(minLength: 0)
-                if task.hasVimangoNote {
-                    // Same symbol and accent (indigo) as taskchamp's note button.
-                    Image(systemName: "doc.text")
-                        .font(.system(size: fontSize - 2))
-                        .foregroundStyle(.indigo)
-                        .help("Open the vimango note")
-                        // A tap gesture, not a Button: List rows capture Button clicks row-wide.
-                        .onTapGesture(perform: openNote)
-                }
-            }
-            if hasDetails {
-                HStack(spacing: 6) {
-                    if let project = task.project {
-                        Badge(text: project, color: .blue, fontSize: fontSize)
-                    }
-                    if let priority = task.priority, let color = priorityColor(priority) {
-                        Badge(text: priority, color: color, fontSize: fontSize, tintedText: true)
-                    }
-                    ForEach(task.tags, id: \.self) { tag in
-                        Badge(text: tag, color: .green, fontSize: fontSize)
-                    }
-                    Spacer()
-                    if let due = task.due {
-                        Text(DueText.format(due))
-                            .font(.system(size: fontSize - 2))
-                            .foregroundStyle(dueColor(due))
-                    }
-                }
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            Text(task.description)
+                .font(.system(size: fontSize + 1))
                 .lineLimit(1)
+                .truncationMode(.tail)
+                .strikethrough(task.isDeleted, color: .red)
+                .help(task.description)
+            if task.isActive {
+                Image(systemName: "play.fill")
+                    .font(.system(size: fontSize - 2))
+                    .foregroundStyle(.tint)
+                    .help("Active")
             }
+            if task.isRecurring {
+                Image(systemName: "arrow.triangle.2.circlepath")
+                    .font(.system(size: fontSize - 2))
+                    .foregroundStyle(.secondary)
+                    .help("Recurring")
+            }
+            badges
+                .layoutPriority(1)
+            Spacer(minLength: 8)
+            trailing
+                .layoutPriority(1)
         }
         // Separators start under the text on every row, not wherever SwiftUI guesses.
         .alignmentGuide(.listRowSeparatorLeading) { $0[.leading] }
-        .padding(.vertical, 4)
+        .padding(.vertical, 2)
         .opacity(task.isCompleted || task.isDeleted ? 0.45 : 1)
+    }
+
+    private var badges: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 4) {
+            if let project = task.project {
+                Badge(text: project, color: .blue, fontSize: fontSize, maxWidth: 120)
+            }
+            if let priority = task.priority, let color = priorityColor(priority) {
+                Badge(text: priority, color: color, fontSize: fontSize, tintedText: true)
+            }
+            // Room for one tag; the rest are counted, and named in the count's tooltip.
+            if let tag = tags.first {
+                Badge(text: tag, color: .green, fontSize: fontSize, maxWidth: 120)
+            }
+            if tags.count > 1 {
+                Badge(text: "+\(tags.count - 1)", color: .green, fontSize: fontSize)
+                    .help(tags.dropFirst().joined(separator: ", "))
+            }
+        }
+    }
+
+    /// The due date and note slot, a column at the right edge.
+    private var trailing: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            if let due = task.due {
+                Text(DueText.format(due))
+                    .font(.system(size: fontSize - 2))
+                    .foregroundStyle(dueColor(due))
+                    .lineLimit(1)
+            }
+            noteSlot
+        }
+    }
+
+    /// The note icon, or an invisible placeholder of the same width, so dates end at the same
+    /// place on every row.
+    @ViewBuilder
+    private var noteSlot: some View {
+        // Same symbol and accent (indigo) as taskchamp's note button.
+        let glyph = Image(systemName: "doc.text").font(.system(size: fontSize - 2))
+        if task.hasVimangoNote {
+            glyph
+                .foregroundStyle(.indigo)
+                .help("Open the vimango note")
+                // A tap gesture, not a Button: List rows capture Button clicks row-wide.
+                .onTapGesture(perform: openNote)
+        } else {
+            glyph
+                .hidden()
+                .accessibilityHidden(true)
+        }
     }
 
     private func priorityColor(_ priority: String) -> Color? {
@@ -186,12 +214,18 @@ private struct Badge: View {
     let fontSize: Double
     /// Draw the text in the badge colour instead of secondary (used for priority).
     var tintedText = false
+    /// Caps a long name at this width; otherwise the badge is as wide as its text.
+    var maxWidth: CGFloat?
 
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         Text(text)
             .font(.system(size: fontSize - 2))
+            .lineLimit(1)
+            // Its own width up to the cap, never stretched to fill the row.
+            .frame(maxWidth: maxWidth)
+            .fixedSize()
             .foregroundStyle(tintedText ? AnyShapeStyle(color) : AnyShapeStyle(.secondary))
             .padding(.horizontal, 6)
             .padding(.vertical, 2)

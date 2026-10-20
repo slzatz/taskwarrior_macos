@@ -66,8 +66,12 @@ struct TaskListView: View {
                 reportMenu(listing)
                 separator
                 contextMenu
-                separator
-                projectMenu(listing)
+                // Only when it can narrow the list (a context pinning a project with no
+                // subprojects leaves nothing), or to clear a typed project.
+                if listing.project != nil || !model.projectChoices.isEmpty {
+                    separator
+                    projectMenu(listing)
+                }
                 if !listing.filterText.isEmpty {
                     separator
                     Text(listing.filterText)

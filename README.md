@@ -48,7 +48,8 @@ expanded, and no other program can be run from the field.
   typed (`task +ops project:work.infra all`), keeping the filter words the other menus
   don't own. Picking a context runs `task context <name>`, which changes it for the
   command line too, and shows the listing again without the old project. The
-  projects offered are those inside the context, nested by subproject.
+  projects offered are those inside the context, nested by subproject; when there are
+  none (a context on a project without subprojects) the project menu is left out.
   The rows are exactly the report's, in its order, with the context applied. Select
   a row and press **Space** (or right-click → Done) to mark it done; double-click or
   **Return** shows `information`; right-click also has start/stop, delete and Copy UUID.

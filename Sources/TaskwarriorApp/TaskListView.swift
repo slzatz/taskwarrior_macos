@@ -12,8 +12,6 @@ struct TaskListView: View {
     var preserveScroll: Bool
 
     @State private var selection: String?
-    /// Takes focus back from a row's description editor when it closes, so the keys work again.
-    @FocusState private var listFocused: Bool
 
     private var fontSize: Double { model.fontSize }
 
@@ -37,7 +35,11 @@ struct TaskListView: View {
                                     endEditing(task)
                                     model.setDescription(text, of: task)
                                 },
-                                cancel: { endEditing(task) }) {
+                                cancel: { endEditing(task) },
+                                toCommandLine: {
+                                    endEditing(task)
+                                    model.focusCommandField()
+                                }) {
                             model.openVimangoNote(for: task)
                         }
                             .tag(task.uuid)
@@ -45,7 +47,6 @@ struct TaskListView: View {
                     }
                 }
                 .listStyle(.inset)
-                .focused($listFocused)
                 .alternatingRowBackgrounds(.disabled)
                 .contextMenu(forSelectionType: String.self) { uuids in
                     if let task = task(for: uuids) { menu(for: task) }
@@ -68,6 +69,20 @@ struct TaskListView: View {
                     guard press.modifiers.isEmpty, model.editingUUID == nil,
                           let task = task(for: selection.map { [$0] } ?? []), !task.isDeleted else { return .ignored }
                     model.editingUUID = task.uuid
+                    return .handled
+                }
+                // vi's j / k, as Down / Up; from no selection, either picks the first row.
+                .onKeyPress(keys: ["j", "k"]) { press in
+                    guard press.modifiers.isEmpty, model.editingUUID == nil, !tasks.isEmpty else { return .ignored }
+                    let index = tasks.firstIndex { $0.uuid == selection }
+                    let next = index.map { min(max($0 + (press.key == "j" ? 1 : -1), 0), tasks.count - 1) } ?? 0
+                    selection = tasks[next].uuid
+                    proxy.scrollTo(tasks[next].uuid)
+                    return .handled
+                }
+                .onKeyPress(characters: [":"]) { _ in
+                    guard model.editingUUID == nil else { return .ignored }
+                    model.focusCommandField()
                     return .handled
                 }
                 .onChange(of: generation) {
@@ -177,10 +192,10 @@ struct TaskListView: View {
     }
 
     /// Closes `task`'s editor unless another row's has opened since (its focus loss comes late).
+    /// Focus is the field's business (`ViLineField`).
     private func endEditing(_ task: TaskItem) {
         guard model.editingUUID == task.uuid else { return }
         model.editingUUID = nil
-        listFocused = true
     }
 
     private func task(for uuids: Set<String>) -> TaskItem? {
@@ -258,11 +273,14 @@ private struct TaskRow: View {
     let idDigits: Int
     let fontSize: Double
     /// The description is a vi-mode field (`ViLineField`): Return commits, Esc in normal mode or
-    /// clicking elsewhere cancels.
+    /// clicking elsewhere cancels, `:` cancels and goes to the command line.
     let isEditing: Bool
     let commit: (String) -> Void
     let cancel: () -> Void
+    let toCommandLine: () -> Void
     let openNote: () -> Void
+
+    @State private var editorMode = ViLineEditor.Mode.normal
 
     /// By name, so the one tag a row has room for is the same on every refresh.
     private var tags: [String] { pins.shownTags(task.tags) }
@@ -309,8 +327,16 @@ private struct TaskRow: View {
         .opacity(task.isCompleted || task.isDeleted ? 0.45 : 1)
     }
 
+    /// The field, then its mode as a badge (insert stands out, since Esc there doesn't cancel).
     private var editor: some View {
-        ViLineField(initialText: task.description, fontSize: fontSize + 1, onCommit: commit, onCancel: cancel)
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            ViLineField(initialText: task.description, fontSize: fontSize + 1,
+                        onCommit: commit, onCancel: cancel, onCommandLine: toCommandLine,
+                        onModeChange: { editorMode = $0 })
+            Badge(text: editorMode == .normal ? "NORMAL" : "INSERT",
+                  color: editorMode == .normal ? .gray : .green, fontSize: fontSize, tintedText: true)
+                .monospaced()
+        }
     }
 
     /// The id for typing commands (`5 done`), right-aligned in a column as wide as the widest

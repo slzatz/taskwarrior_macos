@@ -6,7 +6,7 @@ import TaskwarriorCore
 ///   TASKWARRIOR_APP_SCRIPT   commands separated by ";;", run after startup; `@report <name>`,
 ///                            `@project <name>|-` and `@context <name>` act as the header menus do;
 ///                            `@edit <id>` opens the row's description editor, `@edit <id> <text>` commits it;
-///                            `@keys <vim notation>` types into the window, e.g. `@keys ciwfoo<Esc><CR>`
+///                            `@keys <vim notation>` types into the window, e.g. `@keys ciwfoo<Esc><CR>` (also `<Up>`, `<Down>`)
 ///   TASKWARRIOR_APP_SNAPSHOT path of a PNG to write once the script has finished
 ///   TASKWARRIOR_APP_QUIT     "1" to quit after the script / snapshot
 /// Combine with TASKDATA / TASKRC to point taskwarrior at a scratch database.
@@ -74,8 +74,12 @@ enum DebugHooks {
     private static func typeKeys(_ notation: String) async {
         try? await Task.sleep(for: .milliseconds(300))
         guard let window = NSApp.windows.first(where: { $0.isVisible }) else { return }
+        // The editor has no Up/Down; they pass through as the characters AppKit gives those keys.
+        let notation = notation.replacingOccurrences(of: "<Up>", with: "\u{F700}").replacingOccurrences(of: "<Down>", with: "\u{F701}")
         for key in ViLineEditor.keys(notation) {
             let (characters, keyCode, flags): (String, UInt16, NSEvent.ModifierFlags) = switch key {
+            case .char("\u{F700}"): ("\u{F700}", 126, [.function, .numericPad])
+            case .char("\u{F701}"): ("\u{F701}", 125, [.function, .numericPad])
             case .char(let c): (String(c), 0xFFFF, [])
             case .ctrl(let c): (String(c), 0xFFFF, .control)
             case .escape: ("\u{1b}", 53, [])
@@ -107,6 +111,7 @@ enum DebugHooks {
         view.cacheDisplay(in: view.bounds, to: rep)
         if ProcessInfo.processInfo.environment["TASKWARRIOR_APP_DUMP"] == "1" {
             var out = "window frame: \(window.frame) contentView: \(view.frame) appearance: \(window.effectiveAppearance.name.rawValue)\n"
+            out += "first responder: \(window.firstResponder.map { String(describing: type(of: $0)) } ?? "none")\n"
             func walk(_ v: NSView, depth: Int) {
                 let pad = String(repeating: "  ", count: depth)
                 out += "\(pad)\(type(of: v)) frame=\(v.frame)\n"

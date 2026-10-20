@@ -98,7 +98,15 @@ after modifications or when the window geometry changes. Views are thin.
   insert mode the monitor takes only Esc, Return, Ctrl-W and Ctrl-U and the field types natively
   (input methods, dead keys); Esc recovers the typed text by diffing, for `.`. Keep vi behaviour
   in `ViLineEditor` with a test, not in the view. Not supported: visual mode, registers other
-  than the unnamed one, marks, macros.
+  than the unnamed one, marks, macros. `:` (outcome `.commandLine`) drops the edit and calls
+  `focusCommandField`, without `endEditing`'s refocusing of the list. The focus moves a run-loop
+  turn later, so in a script put the keys for the command line in a separate `@keys` line.
+- **Focus around the description field is AppKit's job, not `@FocusState`.** SwiftUI doesn't see
+  the AppKit field take focus, so a list `@FocusState` still reads true and setting it again
+  is a no-op; the window was left with a vanished field editor as first responder and every
+  key beeped. `ViLineField` focuses itself from `viewDidMoveToWindow` (one async hop wasn't
+  always enough), and on Return / Esc makes the enclosing `NSTableView` first responder
+  before the field is removed. `TASKWARRIOR_APP_DUMP` prints the first responder.
 - **vimango notes are linked by the task's uuid**, the protocol taskchamp and VimNotes use on iOS
   (`TaskwarriorCore/VimangoLink.swift`). "Open/Create vimango Note" (row menu, or a click on the
   indigo icon) opens `vimango://task-note?uuid=&title=&project=`. vimango_hybrid finds the note
@@ -148,7 +156,7 @@ Stage 2 is the structured view; the rest are candidates in rough priority order.
    (e.g. every 10 min and on app activation); spinner and last-sync time in the status line;
    failures surface once, not on every retry.
 3. **In-place editing** – the description is done, with vi keys (`ViLineEditor`). Next: due /
-   project the same way, perhaps a mode indicator, maybe `v` (visual) mode. Decided against libvim for this:
+   project the same way, maybe `v` (visual) mode. Decided against libvim for this:
    vimango_macos's libvim + NSTextView editor failed on caret/cursor sync
    (`~/vimango_hybrid/PLAN.md`), and a C dependency is too much for one line. Revisit (starting from
    vimango_macos's `CLibVim` shim, self-drawn view) only if registers or macros are ever wanted.

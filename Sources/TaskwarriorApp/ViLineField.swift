@@ -9,16 +9,25 @@ import TaskwarriorCore
 /// the field's own. The editor alone owns the cursor: it is read back from the field before each
 /// key and written after, so the two never disagree (vimango_macos's NSTextView editor failed on
 /// exactly that).
+///
+/// Focus is handled in AppKit, not with SwiftUI's focus state, which doesn't see the field take
+/// it: the field takes focus once it is in a window, and before it goes away hands focus to the
+/// list it sits in (Return, Esc), or leaves it for the command line (`:`). Otherwise the
+/// window's first responder is left on a field editor that is no longer shown, and keys beep.
 struct ViLineField: NSViewRepresentable {
     let initialText: String
     let fontSize: Double
     let onCommit: (String) -> Void
     let onCancel: () -> Void
+    /// `:` in normal mode: the edit is dropped and the command line wanted instead.
+    let onCommandLine: () -> Void
+    /// The mode after each key, and once when the field opens.
+    let onModeChange: (ViLineEditor.Mode) -> Void
 
     func makeCoordinator() -> Coordinator { Coordinator(parent: self) }
 
     func makeNSView(context: Context) -> NSTextField {
-        let field = NSTextField(string: initialText)
+        let field = WindowAwareTextField(string: initialText)
         field.isBordered = false
         field.isBezeled = false
         field.drawsBackground = false
@@ -51,21 +60,22 @@ struct ViLineField: NSViewRepresentable {
         private var monitor: Any?
         /// Set once committed or cancelled, so the focus loss that follows doesn't cancel again.
         private var finished = false
+        private var reportedMode: ViLineEditor.Mode?
 
         init(parent: ViLineField) {
             self.parent = parent
             editor = ViLineEditor(text: parent.initialText)
         }
 
-        func attach(_ field: NSTextField) {
+        func attach(_ field: WindowAwareTextField) {
             self.field = field
             monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
                 let handled = MainActor.assumeIsolated { self?.handle(event) ?? false }
                 return handled ? nil : event
             }
-            // Once the field is in the window. Taking focus selects all; `show` replaces that.
-            DispatchQueue.main.async { [weak self] in
-                guard let self, let field = self.field else { return }
+            // Taking focus selects all; `show` replaces that.
+            field.movedToWindow = { [weak self] in
+                guard let self, let field = self.field, !self.finished else { return }
                 field.window?.makeFirstResponder(field)
                 self.show()
             }
@@ -98,11 +108,14 @@ struct ViLineField: NSViewRepresentable {
             editor.sync(text: textView.string, utf16Cursor: textView.selectedRange().location)
             switch editor.handle(key) {
             case .commit:
-                finish()
+                finish(focusingList: true)
                 parent.onCommit(editor.text)
             case .cancel:
-                finish()
+                finish(focusingList: true)
                 parent.onCancel()
+            case .commandLine:
+                finish(focusingList: false)
+                parent.onCommandLine()
             case .none:
                 show()
             }
@@ -116,16 +129,26 @@ struct ViLineField: NSViewRepresentable {
             let range = NSRange(location: selection.location, length: selection.length)
             textView.setSelectedRange(range)
             textView.scrollRangeToVisible(range)
+            if reportedMode != editor.mode {
+                reportedMode = editor.mode
+                parent.onModeChange(editor.mode)
+            }
         }
 
-        private func finish() {
+        /// With `focusingList`, the list's table view gets focus back (its row selection is kept).
+        private func finish(focusingList: Bool) {
             finished = true
             detach()
+            guard focusingList, let field, let window = field.window else { return }
+            var view = field.superview
+            while let current = view, !(current is NSTableView) { view = current.superview }
+            window.makeFirstResponder(view)
         }
 
+        /// Focus went elsewhere (a click): whatever took it keeps it.
         func controlTextDidEndEditing(_ notification: Notification) {
             guard !finished else { return }
-            finish()
+            finish(focusingList: false)
             parent.onCancel()
         }
 
@@ -148,5 +171,18 @@ struct ViLineField: NSViewRepresentable {
                   !c.unicodeScalars.contains(where: { (0xF700...0xF8FF).contains($0.value) }) else { return nil }
             return .char(c)
         }
+    }
+}
+
+/// Says when it has been put in a window, the moment it can take focus.
+final class WindowAwareTextField: NSTextField {
+    var movedToWindow: (() -> Void)?
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        guard window != nil, let movedToWindow else { return }
+        self.movedToWindow = nil
+        // After the move completes; becoming first responder during it is not reliable.
+        DispatchQueue.main.async(execute: movedToWindow)
     }
 }

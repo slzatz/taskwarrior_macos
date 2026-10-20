@@ -53,14 +53,16 @@ expanded, and no other program can be run from the field.
   projects offered are those inside the context, nested by subproject; when there are
   none (a context on a project without subprojects) the project menu is left out.
   The rows are exactly the report's, in its order, with the context applied. Select
-  a row and press **Space** (or right-click → Done) to mark it done; double-click or
+  a row (arrows, or **j** / **k**) and press **Space** (or right-click → Done) to mark it done; double-click or
   **Return** shows `information`; right-click also has start/stop, delete and Copy UUID.
+  **:** moves to the command line.
   **e** (or right-click → Edit Description) edits the description in its row with vi keys,
   starting in normal mode on the last character: motions (`h l w b e W B E 0 ^ $ f t F T ; ,`),
   `x X r s S C D ~ p P`, `i a I A`, `d c y` with a motion or text object (`iw aw`, quotes,
   brackets), counts, `u`, Ctrl-R and `.`; in insert mode the field types normally, plus Ctrl-W
-  and Ctrl-U. **Return** (either mode) saves it with `task <uuid> modify description:…`;
-  **Esc** in normal mode, or clicking away, cancels. The text is passed as one argument, so
+  and Ctrl-U. A NORMAL/INSERT badge shows the mode. **Return** (either mode) saves it with
+  `task <uuid> modify description:…`; **Esc** in normal mode, or clicking away, cancels, and
+  **:** in normal mode cancels and moves to the command line. The text is passed as one argument, so
   `+tag` or `due:` in it stays text.
   Graphs, `information` and other non-task output always use the raw view. The list
   follows the system light/dark appearance; the raw view stays dark because
@@ -132,7 +134,8 @@ for all projects), `@context personal` (`@context none`). `@context` runs
 `task context`, which writes to the rc file, so point `TASKRC` at a scratch copy.
 `@edit 3` opens task 3's description editor as **e** does; `@edit 3 new text` saves
 `new text` as Return would. `@keys 0cwnew<Esc><CR>` types keys in vim notation
-(`<Esc> <CR> <BS> <Left> <Right> <C-w>`) as real key events.
+(`<Esc> <CR> <BS> <Left> <Right> <Up> <Down> <C-w>`) as real key events. The dump below
+includes the window's first responder, which is where keys go.
 
 `TASKWARRIOR_APP_DUMP=1` additionally prints the view hierarchy, the header menus'
 choices and any confirmation the app would have asked for.

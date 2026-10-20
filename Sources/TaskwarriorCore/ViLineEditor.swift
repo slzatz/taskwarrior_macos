@@ -8,7 +8,8 @@ import Foundation
 /// Normal mode: `h l 0 ^ $ w b e W B E f F t T ; ,`, `x X r s S D C ~ p P`, `i a I A`,
 /// `d c y` with a motion or a text object (`iw aw iW aW`, quotes, brackets), `dd cc yy`,
 /// counts, `u`, Ctrl-R and `.`. Insert mode: typing, Backspace, arrows, Ctrl-W, Ctrl-U.
-/// Return commits from either mode; Esc in normal mode with nothing pending cancels.
+/// Return commits from either mode; Esc in normal mode with nothing pending cancels, and `:`
+/// asks for the command line (the view drops the edit and focuses it).
 public struct ViLineEditor: Sendable {
     public enum Mode: Sendable { case normal, insert }
 
@@ -18,7 +19,7 @@ public struct ViLineEditor: Sendable {
         case escape, enter, backspace, left, right, home, end
     }
 
-    public enum Outcome: Sendable, Equatable { case none, commit, cancel }
+    public enum Outcome: Sendable, Equatable { case none, commit, cancel, commandLine }
 
     public private(set) var chars: [Character]
     /// The character under the cursor in normal mode, the insertion point in insert mode.
@@ -246,6 +247,12 @@ public struct ViLineEditor: Sendable {
         if c.isASCII, let digit = c.wholeNumberValue, digit > 0 || count != nil {
             count = (count ?? 0) * 10 + digit
             return .none
+        }
+
+        if c == ":" {
+            let idle = op == nil && count == nil
+            resetCommand()
+            return idle ? .commandLine : .none
         }
 
         if let current = op {

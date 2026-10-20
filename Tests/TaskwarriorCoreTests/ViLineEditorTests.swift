@@ -166,6 +166,18 @@ final class ViLineEditorTests: XCTestCase {
         XCTAssertEqual(editor.text, "abcd")
     }
 
+    func testColonAsksForTheCommandLine() {
+        var editor = ViLineEditor(text: "abc")
+        XCTAssertEqual(editor.handle(.char("d")), .none)
+        XCTAssertEqual(editor.handle(.char(":")), .none, "a pending operator is dropped first")
+        XCTAssertEqual(editor.handle(.char("x")), .none)
+        XCTAssertEqual(editor.text, "ab", "and the next key starts afresh")
+        XCTAssertEqual(editor.handle(.char(":")), .commandLine)
+        editor.handle(.char("A"))
+        XCTAssertEqual(editor.handle(.char(":")), .none)
+        XCTAssertEqual(editor.text, "ab:", "in insert mode it is text")
+    }
+
     /// In the app the field types natively in insert mode and hands its text over before Esc.
     func testSyncedInsertIsRepeatable() {
         var editor = ViLineEditor(text: "foo bar")

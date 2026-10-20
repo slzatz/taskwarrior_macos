@@ -80,6 +80,9 @@ after modifications or when the window geometry changes. Views are thin.
   filter), other words kept. `_projects` and `_unique` ignore the context, so the project menu
   filters by the context's pin itself. A context picked from the menu refreshes the view,
   unlike a typed `task context`, and drops the typed project.
+- Blocked comes from taskwarrior (`<uuids of tasks with depends> +BLOCKED _uuids`), not from
+  the export, which has no dependency's status. Waiting tasks export as `pending` with a future
+  `wait` in 3.x, so `TaskItem.isWaiting` checks the date.
 - Row actions in the list call `AppModel.perform`, which goes through `run(line:)` with the
   task's UUID (ids are renumbered by the refresh after each modification), so the usual
   confirmation, log and refresh rules apply. Don't add a separate path.
@@ -127,7 +130,7 @@ Stage 2 is the structured view; the rest are candidates in rough priority order.
 
 1. **Structured list view (started)** – `TaskListView` draws taskchamp-style one-line rows with a
    context menu, hiding pinned badges; List/Raw toggle (⌘1/⌘2). The done checkbox was removed
-   on trial (Space and the menu still mark done). Next: detail pane, grouping by project/due bucket, scheduled/wait hints.
+   on trial (Space and the menu still mark done). Next: detail pane, grouping by project/due bucket.
 2. **Auto-sync** – debounced `task sync` a few seconds after any modification, plus periodic pull
    (e.g. every 10 min and on app activation); spinner and last-sync time in the status line;
    failures surface once, not on every retry.

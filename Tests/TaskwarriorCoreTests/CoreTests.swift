@@ -341,3 +341,23 @@ final class ListingViewTests: XCTestCase {
         XCTAssertEqual(ProjectNode.tree(["work.infra.db", "work.web"], under: "work.infra").map(\.name), ["work.infra.db"])
     }
 }
+
+final class TaskStateTests: XCTestCase {
+    private func task(_ fields: String) throws -> TaskItem {
+        try XCTUnwrap(TaskItem.decodeExport(#"[{"uuid":"u","description":"d",\#(fields)}]"#).first)
+    }
+
+    func testWaitingAndScheduled() throws {
+        let now = try XCTUnwrap(TaskItem.parseDate("20261020T120000Z"))
+        let waiting = try task(#""status":"pending","wait":"20261027T040000Z","scheduled":"20261025T040000Z""#)
+        XCTAssertTrue(waiting.isWaiting(now: now))
+        XCTAssertTrue(waiting.isScheduledLater(now: now))
+        let past = try task(#""status":"pending","wait":"20261010T040000Z","scheduled":"20261010T040000Z""#)
+        XCTAssertFalse(past.isWaiting(now: now))
+        XCTAssertFalse(past.isScheduledLater(now: now))
+        XCTAssertTrue(try task(#""status":"waiting""#).isWaiting(now: now))
+        let done = try task(#""status":"completed","wait":"20261027T040000Z","scheduled":"20261025T040000Z""#)
+        XCTAssertFalse(done.isWaiting(now: now))
+        XCTAssertFalse(done.isScheduledLater(now: now))
+    }
+}

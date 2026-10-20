@@ -37,18 +37,6 @@ public struct TaskItem: Decodable, Sendable, Identifiable, Equatable {
     public static let vimangoNoteAnnotation = "vimango"
     public var hasVimangoNote: Bool { annotations.contains { $0.description == Self.vimangoNoteAnnotation } }
 
-    /// Hidden until `wait`. Taskwarrior 3 exports these as `pending` with a future `wait`.
-    public func isWaiting(now: Date = Date()) -> Bool {
-        guard isPending else { return false }
-        return status == "waiting" || (wait.map { $0 > now } ?? false)
-    }
-
-    /// Not to be started before `scheduled` (once it passes, the task is ready and unmarked).
-    public func isScheduledLater(now: Date = Date()) -> Bool {
-        guard let scheduled, isPending else { return false }
-        return scheduled > now
-    }
-
     public func isOverdue(now: Date = Date()) -> Bool {
         guard let due, isPending else { return false }
         return due < now

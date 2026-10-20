@@ -29,10 +29,7 @@ struct TaskListView: View {
             ScrollViewReader { proxy in
                 List(selection: $selection) {
                     ForEach(tasks) { task in
-                        TaskRow(
-                            task: task, isBlocked: model.blocked.contains(task.uuid.lowercased()),
-                            pins: model.listPins, idDigits: idDigits, fontSize: fontSize
-                        ) {
+                        TaskRow(task: task, pins: model.listPins, idDigits: idDigits, fontSize: fontSize) {
                             model.openVimangoNote(for: task)
                         }
                             .tag(task.uuid)
@@ -226,7 +223,6 @@ private extension View {
 
 private struct TaskRow: View {
     let task: TaskItem
-    let isBlocked: Bool
     /// What the context and filters pin. Every row would repeat it, so it gets no badge.
     let pins: FilterPins
     let idDigits: Int
@@ -262,15 +258,6 @@ private struct TaskRow: View {
                     .foregroundStyle(.secondary)
                     .help("Recurring")
             }
-            if isBlocked {
-                stateIcon("lock", help: "Blocked: waiting on another task")
-            }
-            if task.isScheduledLater(), let scheduled = task.scheduled {
-                stateIcon("calendar.badge.clock", help: "Scheduled for \(DueText.format(scheduled))")
-            }
-            if task.isWaiting(), let wait = task.wait {
-                stateIcon("hourglass", help: "Hidden until \(DueText.format(wait))")
-            }
             badges
                 .layoutPriority(1)
             Spacer(minLength: 8)
@@ -281,14 +268,6 @@ private struct TaskRow: View {
         .alignmentGuide(.listRowSeparatorLeading) { $0[.leading] }
         .padding(.vertical, 2)
         .opacity(task.isCompleted || task.isDeleted ? 0.45 : 1)
-    }
-
-    /// Blocked, scheduled and waiting: states that say "not yet", so drawn quietly.
-    private func stateIcon(_ name: String, help: String) -> some View {
-        Image(systemName: name)
-            .font(.system(size: fontSize - 2))
-            .foregroundStyle(.secondary)
-            .help(help)
     }
 
     /// The id for typing commands (`5 done`), right-aligned in a column as wide as the widest

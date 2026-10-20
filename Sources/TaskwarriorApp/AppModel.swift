@@ -39,8 +39,6 @@ final class AppModel {
     private(set) var tasks: [TaskItem]?
     /// The listing behind the list, split into what the header menus change.
     private(set) var listing: ListingView?
-    /// Uuids of listed tasks that taskwarrior counts as blocked (a dependency still pending).
-    private(set) var blocked: Set<String> = []
     /// What the context and filters pin for every task in the list, so rows leave it out.
     private(set) var listPins = FilterPins()
     /// Every project (`task _projects`, which ignores the context), for the header's menu.
@@ -402,11 +400,7 @@ final class AppModel {
                   let decoded = try? TaskItem.decodeExport(json.stdout) else { return false }
             items = ReportQuery.ordered(decoded, by: uuids)
         }
-        // Blocked is taskwarrior's call (+BLOCKED), so ask it, and only when something depends.
-        let dependent = items.filter { !$0.depends.isEmpty }.map(\.uuid)
-        let blockedNow = dependent.isEmpty ? [] : await quietLines(dependent + ["+BLOCKED", "_uuids"]) ?? []
         displayIsRefresh = remember && currentView?.tokens == parsed.tokens
-        blocked = Set(blockedNow.map { $0.lowercased() })
         tasks = items
         // Words after a report's name filter it too (`next +finance`).
         let typed = parsed.filter + parsed.arguments

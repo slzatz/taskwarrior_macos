@@ -84,20 +84,54 @@ struct TerminalTextView: NSViewRepresentable {
     }
 }
 
-/// The display's text view, which `DisplayFocus` looks for. Takes `:` (to the command line) and
-/// Esc, which a text view would otherwise treat as completion.
+/// The display's text view, which `DisplayFocus` looks for. Takes `:` (to the command line),
+/// Esc (which a text view would otherwise treat as completion) and the keys that scroll it: a
+/// read-only text view doesn't scroll for arrows or Page Down itself. j / k and Down / Up move a
+/// line, Space / Page Down and Page Up a page, g / Home and G / End to the top and bottom.
 final class TerminalNSTextView: NSTextView {
     var onCommandLine: () -> Void = {}
     var onLeave: () -> Void = {}
 
+    private enum Scroll { case lines(CGFloat), pages(CGFloat), top, bottom }
+
     override func keyDown(with event: NSEvent) {
-        let flags = event.modifierFlags.intersection([.command, .control, .option])
-        if flags.isEmpty, event.keyCode == 53 {
-            onLeave()
-        } else if flags.isEmpty, event.characters == ":" {
+        guard event.modifierFlags.intersection([.command, .control, .option]).isEmpty else {
+            return super.keyDown(with: event)
+        }
+        if event.keyCode == 53 { return onLeave() }
+        let scroll: Scroll? = switch (event.keyCode, event.characters ?? "") {
+        case (125, _), (_, "j"): .lines(1)
+        case (126, _), (_, "k"): .lines(-1)
+        case (121, _), (_, " "): .pages(1)
+        case (116, _): .pages(-1)
+        case (115, _), (_, "g"): .top
+        case (119, _), (_, "G"): .bottom
+        default: nil
+        }
+        if let scroll {
+            self.scroll(scroll)
+        } else if event.characters == ":" {
             onCommandLine()
         } else {
             super.keyDown(with: event)
         }
+    }
+
+    private func scroll(_ scroll: Scroll) {
+        guard let scrollView = enclosingScrollView else { return }
+        let clip = scrollView.contentView
+        let line = layoutManager.map { $0.defaultLineHeight(for: font ?? .systemFont(ofSize: 13)) } ?? 16
+        let page = max(clip.bounds.height - line, line)
+        let bottom = max(frame.height - clip.bounds.height, 0)
+        var origin = clip.bounds.origin
+        switch scroll {
+        case .lines(let n): origin.y += n * line
+        case .pages(let n): origin.y += n * page
+        case .top: origin.y = 0
+        case .bottom: origin.y = bottom
+        }
+        origin.y = min(max(origin.y, 0), bottom)
+        clip.scroll(to: origin)
+        scrollView.reflectScrolledClipView(clip)
     }
 }

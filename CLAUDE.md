@@ -117,7 +117,9 @@ after modifications or when the window geometry changes. Views are thin.
   moves it to the table or `TerminalNSTextView`, waiting until the view for what is shown now
   is in the window; a list ⇄ text swap moves it only from the old display view or from
   nowhere, never from the command line. Esc in the text view leaves a one-off
-  (`displayIsTransient`, i.e. `information`) for the current view.
+  (`displayIsTransient`, i.e. `information`) for the current view. A read-only `NSTextView`
+  doesn't scroll for arrows or Page Down, so `TerminalNSTextView` scrolls its clip view itself
+  (j/k, Space, g/G too).
 - **vimango notes are linked by the task's uuid**, the protocol taskchamp and VimNotes use on iOS
   (`TaskwarriorCore/VimangoLink.swift`). "Open/Create vimango Note" (row menu, or a click on the
   indigo icon) opens `vimango://task-note?uuid=&title=&project=`. vimango_hybrid finds the note

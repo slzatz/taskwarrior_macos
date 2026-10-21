@@ -71,7 +71,9 @@ expanded, and no other program can be run from the field.
   `task <uuid> modify description:…`; **Esc** in normal mode, or clicking away, cancels, and
   **:** in normal mode cancels and moves to the command line. The text is passed as one argument, so
   `+tag` or `due:` in it stays text.
-  Graphs, `information` and other non-task output always use the raw view. The list
+  Graphs, `information` and other non-task output always use the raw view. There **j** / **k**
+  (or Down / Up) scroll a line, **Space** / Page Down and Page Up a page, **g** and **G** go to
+  the top and bottom, and **:** moves to the command line. The list
   follows the system light/dark appearance; the raw view stays dark because
   taskwarrior's colours assume a black terminal.
 - **Up / Down** walk the command history (kept between launches), so **:** then **Up**

@@ -83,6 +83,17 @@ final class DisplayPolicyTests: XCTestCase {
         if case .refuse = action("5 edit") {} else { XCTFail("edit should be refused") }
     }
 
+    func testHeight() {
+        func height(_ line: String) -> Int {
+            DisplayPolicy.height(for: ParsedCommand.parse(line, catalog: catalog), catalog: catalog, windowRows: 40)
+        }
+        XCTAssertEqual(height("next"), 0)
+        XCTAssertEqual(height("project:work"), 0)
+        XCTAssertEqual(height("5 info"), 0)
+        XCTAssertEqual(height("burndown"), 40)
+        XCTAssertEqual(height("calendar"), 40)
+    }
+
     func testConfirmation() {
         func req(_ line: String, bulk: Int = 3) -> ConfirmationPolicy.Requirement {
             ConfirmationPolicy.requirement(for: ParsedCommand.parse(line, catalog: catalog), catalog: catalog, bulkThreshold: bulk)

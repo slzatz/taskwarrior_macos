@@ -47,6 +47,13 @@ public enum DisplayPolicy {
             return .logOnly
         }
     }
+
+    /// The `rc.defaultheight` a command runs with. 0 lifts `limit:page` (the user's `next`): the
+    /// display scrolls, so a report shows every task. Graphs draw to the height and get the
+    /// window's rows; at 0 burndown says the window is too large to draw.
+    public static func height(for parsed: ParsedCommand, catalog: CommandCatalog, windowRows: Int) -> Int {
+        parsed.effectiveCommand(in: catalog)?.category == .graphs ? windowRows : 0
+    }
 }
 
 /// Decides when the app should ask before running a command, since taskwarrior's

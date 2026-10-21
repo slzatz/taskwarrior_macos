@@ -394,7 +394,7 @@ final class AppModel {
             return
         }
 
-        let result = await runInBackground(runner, arguments: parsed.tokens)
+        let result = await runInBackground(runner, arguments: parsed.tokens, height: height(for: parsed))
         switch result {
         case .failure(let error):
             appendLog(command: parsed.displayString, text: error.localizedDescription, isError: true)
@@ -435,7 +435,8 @@ final class AppModel {
     /// exported. Returns false when the text view should be used instead (e.g. a filter error).
     private func showList(_ parsed: ParsedCommand, report: String, remember: Bool) async -> Bool {
         guard let runner else { return false }
-        let listing = await runInBackground(runner, arguments: parsed.tokens, extra: ReportQuery.uuidListingOverrides(report: report))
+        let listing = await runInBackground(runner, arguments: parsed.tokens, height: height(for: parsed),
+                                            extra: ReportQuery.uuidListingOverrides(report: report))
         guard case .success(let output) = listing else { return false }
         let uuids = ReportQuery.parseUUIDs(output.stdout)
         var items: [TaskItem] = []
@@ -443,7 +444,7 @@ final class AppModel {
             // "No matches." exits non-zero; any other failure is shown verbatim as text.
             guard output.succeeded || output.combinedOutput.contains("No matches") else { return false }
         } else {
-            let exported = await runInBackground(runner, arguments: ReportQuery.exportArguments(uuids: uuids), extra: ["rc.verbose=nothing"])
+            let exported = await runInBackground(runner, arguments: ReportQuery.exportArguments(uuids: uuids), height: 0, extra: ["rc.verbose=nothing"])
             guard case .success(let json) = exported, json.succeeded,
                   let decoded = try? TaskItem.decodeExport(json.stdout) else { return false }
             items = ReportQuery.ordered(decoded, by: uuids)
@@ -481,11 +482,16 @@ final class AppModel {
         return sources
     }
 
-    private func runInBackground(_ runner: TaskRunner, arguments: [String], extra: [String] = []) async -> Result<TaskResult, Error> {
-        let overrides = ["rc.defaultwidth=\(max(columns, 40))", "rc.defaultheight=\(max(rows, 10))"] + extra
+    private func runInBackground(_ runner: TaskRunner, arguments: [String], height: Int, extra: [String] = []) async -> Result<TaskResult, Error> {
+        let overrides = ["rc.defaultwidth=\(max(columns, 40))", "rc.defaultheight=\(height)"] + extra
         return await Task.detached(priority: .userInitiated) {
             Result { try runner.run(arguments, overrides: overrides) }
         }.value
+    }
+
+    /// No page limit for reports, the window's rows for graphs (`DisplayPolicy.height`).
+    private func height(for parsed: ParsedCommand) -> Int {
+        DisplayPolicy.height(for: parsed, catalog: catalog, windowRows: max(rows, 10))
     }
 
     private func countMatches(filter: [String]) async -> Int? {
@@ -560,9 +566,11 @@ final class AppModel {
         let newRows = max(Int((displaySize.height - 2 * inset) / metrics.lineHeight), 5)
         guard newColumns != columns || newRows != rows else { return }
         let first = columns == 0
+        let widthChanged = newColumns != columns
         columns = newColumns
         rows = newRows
-        guard !first, currentView != nil else { return }
+        // Only graphs draw to the height; reports aren't page-limited.
+        guard !first, let view = currentView, widthChanged || height(for: view) != 0 else { return }
         // Debounce window resizing / font zooming, then re-run the listing at the new size.
         geometryRefresh?.cancel()
         geometryRefresh = Task { [weak self] in

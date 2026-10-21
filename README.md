@@ -82,7 +82,8 @@ expanded, and no other program can be run from the field.
 - **⌘R** re-runs the current listing, **⌘L** focuses the command field,
   **⌘⇧O** shows or hides the output pane, **⌘K** clears it.
 - Window size and font size are remembered. Resizing the window re-runs the
-  listing at the new width and height (so `limit:page` reports fill the window).
+  listing at the new width (and a graph at the new height). Reports aren't cut to
+  the window: `limit:page` (as in `next`) shows every task, since both views scroll.
 
 ### What refreshes the display
 
@@ -114,7 +115,8 @@ in taskwarrior). `rc.allow.empty.filter=no` is always passed, so a bare
 ### Overrides the app applies
 
 Every invocation gets `rc.confirmation=off rc.allow.empty.filter=no
-rc._forcecolor=on rc.defaultwidth=<columns> rc.defaultheight=<rows>` and a
+rc._forcecolor=on rc.defaultwidth=<columns> rc.defaultheight=<h>` (0, no page limit,
+except the window's rows for graphs) and a
 `rc.verbose=` list equal to yours minus `override` and `context` (the status
 line shows the active context instead). Your own `rc.` tokens on the command
 line still win because they come later.

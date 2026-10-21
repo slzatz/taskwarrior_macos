@@ -41,11 +41,14 @@ after modifications or when the window geometry changes. Views are thin.
 ## Invariants and gotchas (learned the hard way)
 
 - All `task` invocations carry `rc.confirmation=off rc.allow.empty.filter=no rc._forcecolor=on
-  rc.verbose=<user's list minus override,context> rc.defaultwidth=<cols> rc.defaultheight=<rows>`.
+  rc.verbose=<user's list minus override,context> rc.defaultwidth=<cols> rc.defaultheight=<h>`.
   The app must therefore do its own confirmations for anything destructive.
 - `task _show` reports the *effective* config: never query it with overrides you don't want read back.
-- Reports with `limit:page` (the user's `next`) size themselves from `rc.defaultheight`; without it
-  the app shows only ~20 rows. Column fit comes from `rc.defaultwidth` computed from the text view.
+- Reports with `limit:page` (the user's `next`) size themselves from `rc.defaultheight`; without the
+  override the app showed only ~20 rows. Both views scroll, so reports run with `rc.defaultheight=0`,
+  which lifts the page limit (`DisplayPolicy.height`). Graphs draw to the height and get the
+  window's rows: at 0 burndown fails ("Terminal window too large to draw a graph"). Column fit
+  comes from `rc.defaultwidth` computed from the text view.
 - No shell is ever involved in running a command. `ShellTokenizer` splits the typed line,
   `ParsedCommand.parse` drops a leading `task` word, and `TaskRunner` passes the tokens as argv
   to the binary via `Process`. So quoting works but globs, `$VAR`, pipes and redirection do not,

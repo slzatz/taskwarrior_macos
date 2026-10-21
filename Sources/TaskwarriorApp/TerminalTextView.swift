@@ -14,6 +14,8 @@ struct TerminalTextView: NSViewRepresentable {
     var onCommandLine: () -> Void = {}
     /// Esc pressed in the view.
     var onLeave: () -> Void = {}
+    /// `?` pressed in the view.
+    var onHelp: () -> Void = {}
 
     final class Coordinator {
         var generation = -1
@@ -65,6 +67,7 @@ struct TerminalTextView: NSViewRepresentable {
         guard let textView = scrollView.documentView as? TerminalNSTextView else { return }
         textView.onCommandLine = onCommandLine
         textView.onLeave = onLeave
+        textView.onHelp = onHelp
         let coordinator = context.coordinator
         let fontChanged = coordinator.fontSize != fontSize
         guard coordinator.generation != generation || fontChanged else { return }
@@ -85,12 +88,13 @@ struct TerminalTextView: NSViewRepresentable {
 }
 
 /// The display's text view, which `DisplayFocus` looks for. Takes `:` (to the command line),
-/// Esc (which a text view would otherwise treat as completion) and the keys that scroll it: a
+/// `?` (help), Esc (which a text view would otherwise treat as completion) and the keys that scroll it: a
 /// read-only text view doesn't scroll for arrows or Page Down itself. j / k and Down / Up move a
 /// line, Space / Page Down and Page Up a page, g / Home and G / End to the top and bottom.
 final class TerminalNSTextView: NSTextView {
     var onCommandLine: () -> Void = {}
     var onLeave: () -> Void = {}
+    var onHelp: () -> Void = {}
 
     private enum Scroll { case lines(CGFloat), pages(CGFloat), top, bottom }
 
@@ -112,6 +116,8 @@ final class TerminalNSTextView: NSTextView {
             self.scroll(scroll)
         } else if event.characters == ":" {
             onCommandLine()
+        } else if event.characters == "?" {
+            onHelp()
         } else {
             super.keyDown(with: event)
         }

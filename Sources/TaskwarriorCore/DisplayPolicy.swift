@@ -18,6 +18,8 @@ public enum DisplayAction: Sendable, Equatable {
 public enum DisplayPolicy {
     /// Metadata commands whose output is a multi-line report worth showing in the main view.
     static let metadataShownInDisplay: Set<String> = ["information", "projects", "tags", "stats"]
+    /// Other commands whose output is too long for the log (`task help`).
+    static let miscShownInDisplay: Set<String> = ["help"]
 
     public static func action(for parsed: ParsedCommand, catalog: CommandCatalog) -> DisplayAction {
         guard let command = parsed.effectiveCommand(in: catalog) else {
@@ -42,7 +44,7 @@ public enum DisplayPolicy {
             if command.name == "execute" {
                 return .refuse("'execute' runs an external command and is not supported in the app.")
             }
-            return .logOnly
+            return miscShownInDisplay.contains(command.name) ? .replaceDisplay(remember: false) : .logOnly
         case .context, .config, .internal, .unknown:
             return .logOnly
         }

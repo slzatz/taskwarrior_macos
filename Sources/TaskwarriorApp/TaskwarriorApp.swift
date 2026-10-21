@@ -40,6 +40,10 @@ struct TaskwarriorApp: App {
                 Button(model.logExpanded ? "Hide Output Pane" : "Show Output Pane") { model.logExpanded.toggle() }
                     .keyboardShortcut("o", modifiers: [.command, .shift])
             }
+            CommandGroup(replacing: .help) {
+                Button("Keyboard and Commands") { model.helpOpen = true }
+                    .keyboardShortcut("?", modifiers: .command)
+            }
             CommandMenu("Task") {
                 Button("Refresh View") { model.refreshCurrentView() }
                     .keyboardShortcut("r", modifiers: .command)

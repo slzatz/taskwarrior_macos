@@ -80,7 +80,19 @@ final class DisplayPolicyTests: XCTestCase {
         XCTAssertEqual(action("context personal"), .logOnly)
         XCTAssertEqual(action("show"), .logOnly)
         XCTAssertEqual(action("export"), .logOnly)
+        XCTAssertEqual(action("task help"), .replaceDisplay(remember: false))
+        XCTAssertEqual(action("version"), .logOnly)
         if case .refuse = action("5 edit") {} else { XCTFail("edit should be refused") }
+    }
+
+    func testAppCommand() {
+        XCTAssertEqual(AppCommand(line: "help"), .help)
+        XCTAssertEqual(AppCommand(line: "  h "), .help)
+        XCTAssertEqual(AppCommand(line: "?"), .help)
+        // Taskwarrior's own help, and anything longer, still run `task`.
+        XCTAssertNil(AppCommand(line: "task help"))
+        XCTAssertNil(AppCommand(line: "help me"))
+        XCTAssertNil(AppCommand(line: "Help"))
     }
 
     func testHeight() {

@@ -87,6 +87,11 @@ struct TaskListView: View {
                     model.focusCommandField()
                     return .handled
                 }
+                .onKeyPress(characters: ["?"]) { _ in
+                    guard model.editingUUID == nil else { return .ignored }
+                    model.helpOpen = true
+                    return .handled
+                }
                 .onChange(of: generation) {
                     if !preserveScroll, let first = tasks.first { proxy.scrollTo(first.uuid, anchor: .top) }
                     // Where the command landed, e.g. a new task further down.

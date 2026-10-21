@@ -73,7 +73,9 @@ enum DebugHooks {
     @MainActor
     private static func typeKeys(_ notation: String) async {
         try? await Task.sleep(for: .milliseconds(300))
-        guard let window = NSApp.windows.first(where: { $0.isVisible }) else { return }
+        // To the help sheet while it is open, as typing would.
+        guard let main = NSApp.windows.first(where: { $0.isVisible && $0.sheetParent == nil }) else { return }
+        let window = main.attachedSheet ?? main
         // The editor has no Up/Down; they pass through as the characters AppKit gives those keys.
         let notation = notation.replacingOccurrences(of: "<Up>", with: "\u{F700}").replacingOccurrences(of: "<Down>", with: "\u{F701}")
         for key in ViLineEditor.keys(notation) {
@@ -102,7 +104,9 @@ enum DebugHooks {
 
     @MainActor
     static func snapshot(to path: String, model: AppModel) {
-        guard let window = NSApp.windows.first(where: { $0.isVisible }),
+        // The help sheet is a window of its own, attached to the main one.
+        guard let main = NSApp.windows.first(where: { $0.isVisible && $0.sheetParent == nil }),
+              case let window = main.attachedSheet ?? main,
               let view = window.contentView,
               let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else {
             FileHandle.standardError.write(Data("snapshot: no window\n".utf8))
@@ -111,7 +115,16 @@ enum DebugHooks {
         view.cacheDisplay(in: view.bounds, to: rep)
         if ProcessInfo.processInfo.environment["TASKWARRIOR_APP_DUMP"] == "1" {
             var out = "window frame: \(window.frame) contentView: \(view.frame) appearance: \(window.effectiveAppearance.name.rawValue)\n"
-            out += "first responder: \(window.firstResponder.map { String(describing: type(of: $0)) } ?? "none")\n"
+            out += "first responder: \(main.firstResponder.map { String(describing: type(of: $0)) } ?? "none")"
+            if let sheet = main.attachedSheet {
+                func scrollView(in view: NSView) -> NSScrollView? {
+                    view as? NSScrollView ?? view.subviews.lazy.compactMap(scrollView).first
+                }
+                let origin = sheet.contentView.flatMap(scrollView)?.contentView.bounds.origin.y ?? -1
+                out += "  sheet open, scrolled to \(origin)\n"
+            } else {
+                out += "\n"
+            }
             let selected = model.selectedUUID.map { uuid in model.tasks?.first { $0.uuid == uuid }.map { "id \($0.number)" } ?? uuid }
             out += "selected: \(selected ?? "none")  command line: \(model.commandText.debugDescription)\n"
             func walk(_ v: NSView, depth: Int) {
@@ -130,7 +143,16 @@ enum DebugHooks {
             out += "menus: reports=\(reports.main) variants=\(reports.variants) contexts=\(model.contexts) projects=\(names(model.projectChoices))\n"
             FileHandle.standardError.write(Data(out.utf8))
         }
-        guard let png = rep.representation(using: NSBitmapImageRep.FileType.png, properties: [:]) else { return }
+        var png = rep.representation(using: NSBitmapImageRep.FileType.png, properties: [:])
+        if main.attachedSheet != nil {
+            // The sheet's window draws blank into a bitmap, so draw the help itself.
+            let renderer = ImageRenderer(content: HelpContent().padding(12).frame(width: 720)
+                .background(Color(nsColor: .windowBackgroundColor)).environment(\.colorScheme, .dark))
+            renderer.scale = 2
+            png = renderer.nsImage?.tiffRepresentation.flatMap(NSBitmapImageRep.init(data:))?
+                .representation(using: .png, properties: [:])
+        }
+        guard let png else { return }
         try? png.write(to: URL(fileURLWithPath: path))
     }
 }

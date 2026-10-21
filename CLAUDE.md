@@ -123,6 +123,12 @@ after modifications or when the window geometry changes. Views are thin.
   (`displayIsTransient`, i.e. `information`) for the current view. A read-only `NSTextView`
   doesn't scroll for arrows or Page Down, so `TerminalNSTextView` scrolls its clip view itself
   (j/k, Space, g/G too).
+- **The help sheet (`HelpView.swift`) is a hand-written table, `HelpSection.all`.** A new key
+  or a changed one goes there too; nothing checks it against the code. `help` / `h` / `?` on the
+  command line are the app's (`AppCommand`, intercepted at the top of `run(line:)`); `task help`
+  typed in full is taskwarrior's, shown as a one-off in the raw view. The sheet scrolls with
+  vimango_hybrid's `SheetKeyScroller` (a key monitor scoped to the sheet's window). A bitmap of
+  the sheet's window comes out blank, so the scripted snapshot draws `HelpContent` instead.
 - **vimango notes are linked by the task's uuid**, the protocol taskchamp and VimNotes use on iOS
   (`TaskwarriorCore/VimangoLink.swift`). "Open/Create vimango Note" (row menu, or a click on the
   indigo icon) opens `vimango://task-note?uuid=&title=&project=`. vimango_hybrid finds the note

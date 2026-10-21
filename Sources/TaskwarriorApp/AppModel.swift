@@ -79,6 +79,8 @@ final class AppModel {
     private var contextFilter = ""
     private(set) var isRunning = false
     var pendingConfirmation: Confirmation?
+    /// The help sheet (`help`, `?`, Help menu).
+    var helpOpen = false
 
     // MARK: Input
     var commandText = ""
@@ -180,6 +182,10 @@ final class AppModel {
     }
 
     func run(line: String) {
+        if AppCommand(line: line) == .help {
+            helpOpen = true
+            return
+        }
         guard runner != nil else {
             appendLog(command: line, text: "taskwarrior is not available.", isError: true)
             return

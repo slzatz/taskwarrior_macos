@@ -19,7 +19,8 @@ struct ContentView: View {
                         fontSize: model.fontSize,
                         preserveScroll: model.displayIsRefresh,
                         onCommandLine: { model.focusCommandField() },
-                        onLeave: { model.leaveTransientDisplay() }
+                        onLeave: { model.leaveTransientDisplay() },
+                        onHelp: { model.helpOpen = true }
                     )
                     .background(Color(nsColor: TerminalPalette.background))
                 }
@@ -50,6 +51,9 @@ struct ContentView: View {
             .environment(\.colorScheme, .dark)
         }
         .frame(minWidth: 520, minHeight: 320)
+        .sheet(isPresented: $model.helpOpen, onDismiss: { model.focusDisplay() }) {
+            HelpView { model.helpOpen = false }
+        }
         .alert(
             model.pendingConfirmation?.title ?? "Confirm",
             isPresented: Binding(

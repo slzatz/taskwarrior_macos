@@ -76,6 +76,10 @@ expanded, and no other program can be run from the field.
   the top and bottom, and **:** moves to the command line. The list
   follows the system light/dark appearance; the raw view stays dark because
   taskwarrior's colours assume a black terminal.
+- **help** (or **h**, **?**) on the command line, **?** in the list or the raw view, and
+  Help > Keyboard and Commands (**⌘?**) open a sheet listing every key and how commands
+  behave; it scrolls with j/k, Space, g/G and Ctrl-D/U, and **Esc** closes it. Typed in full,
+  `task help` shows taskwarrior's own help in the raw view (**Esc** goes back).
 - **Up / Down** walk the command history (kept between launches), so **:** then **Up**
   repeats or fixes the last line. **Esc** clears the field and goes back to the list.
 - **⌘=** / **⌘-** / **⌘0** change the font size; the report is re-run so columns fit the window.
@@ -148,6 +152,7 @@ for all projects), `@context personal` (`@context none`). `@context` runs
 `new text` as Return would. `@keys 0cwnew<Esc><CR>` types keys in vim notation
 (`<Esc> <CR> <BS> <Left> <Right> <Up> <Down> <C-w>`) as real key events. The dump below
 includes the window's first responder, which is where keys go, and the selected task.
+While the help sheet is open, keys go to it and the snapshot shows its contents.
 
 `TASKWARRIOR_APP_DUMP=1` additionally prints the view hierarchy, the header menus'
 choices and any confirmation the app would have asked for.

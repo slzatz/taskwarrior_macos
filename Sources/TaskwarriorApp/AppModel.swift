@@ -47,6 +47,15 @@ final class AppModel {
     private(set) var listPins = FilterPins()
     /// The task whose description is being edited in its row, if any.
     var editingUUID: String?
+    /// The list's selected task. Kept while text is shown, so leaving `information` lands on it.
+    var selectedUUID: String?
+    /// The tasks last listed, in order, also while text is shown: what typed ids refer to, and
+    /// where a task that leaves the list was (`ListLanding`).
+    private var listed: [TaskItem] = []
+    /// Where the next list lands, set by the queued work for a typed line; see `ListLanding`.
+    private var pendingLanding = ListLanding.keep
+    /// The text shown is a one-off (`information`), not the current view; Esc goes back to it.
+    private(set) var displayIsTransient = false
     /// Every project (`task _projects`, which ignores the context), for the header's menu.
     private(set) var projects: [String] = []
     /// Defined contexts (`task _context`), for the header's menu.
@@ -75,6 +84,8 @@ final class AppModel {
     var commandText = ""
     private(set) var history: [String] { didSet { defaults.set(Array(history.suffix(500)), forKey: Keys.history) } }
     private(set) var focusRequest = 0
+    /// Bumped to give the list (or the text view) keyboard focus; see `DisplayFocus`.
+    private(set) var displayFocusRequest = 0
 
     // MARK: Appearance / geometry
     var fontSize: Double {
@@ -148,6 +159,8 @@ final class AppModel {
         }
         // The initial view is whatever `task` alone shows (the user's default.command).
         enqueue(ParsedCommand.parse("", catalog: catalog), action: .replaceDisplay(remember: true))
+        // The keyboard starts in the list, on its first task.
+        enqueueWork { [weak self] in self?.focusDisplay() }
         let queued = pendingURLs
         pendingURLs = []
         queued.forEach(handle(url:))
@@ -155,7 +168,10 @@ final class AppModel {
 
     // MARK: - Commands from the UI
 
+    /// Runs the typed line. Like vim's `:` line, Return always goes back to the list, whatever
+    /// ran; focus moves at once, so keys typed during a slow `sync` reach the list.
     func submit() {
+        focusDisplay()
         let line = commandText.trimmingCharacters(in: .whitespacesAndNewlines)
         commandText = ""
         guard !line.isEmpty else { return }
@@ -170,6 +186,7 @@ final class AppModel {
         }
         let parsed = ParsedCommand.parse(line, catalog: catalog)
         let action = DisplayPolicy.action(for: parsed, catalog: catalog)
+        let landing = ListLanding.intent(for: parsed, catalog: catalog, current: currentView, rows: listed)
         if case .refuse(let reason) = action {
             appendLog(command: parsed.displayString, text: reason, isError: true)
             return
@@ -177,10 +194,10 @@ final class AppModel {
         let requirement = ConfirmationPolicy.requirement(for: parsed, catalog: catalog, bulkThreshold: environment?.bulkThreshold ?? 0)
         switch requirement {
         case .none:
-            enqueue(parsed, action: action)
+            enqueue(parsed, action: action, landing: landing)
         case .always:
             enqueueWork { [weak self] in
-                self?.ask(parsed, action: action, message: "Run “\(parsed.displayString)”?")
+                self?.ask(parsed, action: action, landing: landing, message: "Run “\(parsed.displayString)”?")
             }
         case .countAbove(let threshold):
             enqueueWork { [weak self] in
@@ -188,12 +205,12 @@ final class AppModel {
                 let count = await self.countMatches(filter: parsed.filter)
                 if let count, count > threshold {
                     let noun = count == 1 ? "task" : "tasks"
-                    self.ask(parsed, action: action, message: "“\(parsed.displayString)” will affect \(count) \(noun).")
-                } else if count == 0 {
-                    // Let taskwarrior report "No matches" itself.
-                    await self.execute(parsed, action: action)
+                    self.ask(parsed, action: action, landing: landing, message: "“\(parsed.displayString)” will affect \(count) \(noun).")
                 } else {
+                    // At 0, taskwarrior reports "No matches" itself.
+                    self.pendingLanding = landing
                     await self.execute(parsed, action: action)
+                    self.pendingLanding = .keep
                 }
             }
         }
@@ -250,6 +267,16 @@ final class AppModel {
     }
 
     func focusCommandField() { focusRequest += 1 }
+
+    /// Gives the keyboard to the list, or to the text view when text is shown.
+    func focusDisplay() { displayFocusRequest += 1 }
+
+    /// Esc in the text view: from a one-off such as `information`, back to the current view,
+    /// which lands on the task that was selected.
+    func leaveTransientDisplay() {
+        guard displayIsTransient else { return }
+        refreshCurrentView()
+    }
 
     /// Runs a command on one task from the list, e.g. `done` or `start`. Goes through the same
     /// path as a typed line so confirmation, logging and refresh rules all apply. The UUID is
@@ -327,18 +354,23 @@ final class AppModel {
 
     // MARK: - Execution
 
-    private func ask(_ parsed: ParsedCommand, action: DisplayAction, message: String) {
+    private func ask(_ parsed: ParsedCommand, action: DisplayAction, landing: ListLanding, message: String) {
         let title = "Confirm \(parsed.effectiveCommand(in: catalog)?.name ?? "command")"
         if ProcessInfo.processInfo.environment["TASKWARRIOR_APP_DUMP"] == "1" {
             FileHandle.standardError.write(Data("confirm: \(title): \(message)\n".utf8))
         }
         pendingConfirmation = Confirmation(title: title, message: message) { [weak self] in
-            self?.enqueue(parsed, action: action)
+            self?.enqueue(parsed, action: action, landing: landing)
         }
     }
 
-    private func enqueue(_ parsed: ParsedCommand, action: DisplayAction) {
-        enqueueWork { [weak self] in await self?.execute(parsed, action: action) }
+    private func enqueue(_ parsed: ParsedCommand, action: DisplayAction, landing: ListLanding = .keep) {
+        enqueueWork { [weak self] in
+            self?.pendingLanding = landing
+            await self?.execute(parsed, action: action)
+            // Unused when nothing was listed (a failed command): not for a later refresh.
+            self?.pendingLanding = .keep
+        }
     }
 
     /// Commands run strictly one after another so a slow `sync` cannot interleave with a listing.
@@ -373,6 +405,7 @@ final class AppModel {
                 displayIsRefresh = remember && currentView?.tokens == parsed.tokens
                 display = ANSIParser.parse(output.primaryOutput)
                 tasks = nil
+                displayIsTransient = !remember
                 displayGeneration += 1
                 if remember { currentView = parsed }
                 if !output.succeeded {
@@ -416,7 +449,12 @@ final class AppModel {
             items = ReportQuery.ordered(decoded, by: uuids)
         }
         displayIsRefresh = remember && currentView?.tokens == parsed.tokens
+        let newRows = items.map(\.uuid)
+        selectedUUID = pendingLanding.resolve(oldRows: listed.map(\.uuid), newRows: newRows, selected: selectedUUID)
+        pendingLanding = .keep
+        listed = items
         tasks = items
+        displayIsTransient = false
         // Words after a report's name filter it too (`next +finance`).
         let typed = parsed.filter + parsed.arguments
         self.listing = ListingView(report: report, words: typed)
@@ -505,6 +543,7 @@ final class AppModel {
     private func showMessage(_ text: String) {
         display = [StyledRun(text: text)]
         tasks = nil
+        displayIsTransient = false
         displayGeneration += 1
         displayIsRefresh = false
     }

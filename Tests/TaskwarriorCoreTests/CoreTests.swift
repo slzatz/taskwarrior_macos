@@ -346,3 +346,56 @@ final class ListingViewTests: XCTestCase {
         XCTAssertEqual(ProjectNode.tree(["work.infra.db", "work.web"], under: "work.infra").map(\.name), ["work.infra.db"])
     }
 }
+
+final class ListLandingTests: XCTestCase {
+    let catalog = CommandCatalog.fallback
+    let a = "aaaaaaaa-0000-4000-8000-000000000001"
+    let b = "bbbbbbbb-0000-4000-8000-000000000002"
+    let c = "cccccccc-0000-4000-8000-000000000003"
+    let d = "dddddddd-0000-4000-8000-000000000004"
+
+    private func rows() throws -> [TaskItem] {
+        let json = [a, b, c].enumerated().map { #"{"id":\#($0.offset + 1),"uuid":"\#($0.element)","description":"x"}"# }
+        return try TaskItem.decodeExport("[" + json.joined(separator: ",") + "]")
+    }
+
+    private func intent(_ line: String, current: String? = "next") throws -> ListLanding {
+        ListLanding.intent(for: ParsedCommand.parse(line, catalog: catalog), catalog: catalog,
+                           current: current.map { ParsedCommand.parse($0, catalog: catalog) }, rows: try rows())
+    }
+
+    func testIntent() throws {
+        XCTAssertEqual(try intent("2 done"), .tasks([b]))
+        XCTAssertEqual(try intent("3,1 modify due:tomorrow"), .tasks([a, c]))
+        XCTAssertEqual(try intent("2-3 start"), .tasks([b, c]))
+        XCTAssertEqual(try intent("bbbbbbbb done"), .tasks([b]))
+        XCTAssertEqual(try intent("\(c) annotate hi"), .tasks([c]))
+        // Not only ids, or none of them listed: the selection stays.
+        XCTAssertEqual(try intent("2 +home done"), .keep)
+        XCTAssertEqual(try intent("9 done"), .keep)
+        XCTAssertEqual(try intent("add Buy milk"), .newTask)
+        XCTAssertEqual(try intent("1 duplicate"), .newTask)
+        XCTAssertEqual(try intent("list"), .top)
+        XCTAssertEqual(try intent("project:work"), .top)
+        XCTAssertEqual(try intent("next"), .keep)
+        XCTAssertEqual(try intent("sync"), .keep)
+        XCTAssertEqual(try intent("show"), .keep)
+    }
+
+    func testResolve() {
+        let old = [a, b, c]
+        XCTAssertEqual(ListLanding.tasks([b]).resolve(oldRows: old, newRows: [a, b, c], selected: a), b)
+        // Done: the next row takes its place; the last row's place goes to the one before.
+        XCTAssertEqual(ListLanding.tasks([b]).resolve(oldRows: old, newRows: [a, c], selected: b), c)
+        XCTAssertEqual(ListLanding.tasks([c]).resolve(oldRows: old, newRows: [a, b], selected: c), b)
+        XCTAssertEqual(ListLanding.tasks([a, b]).resolve(oldRows: old, newRows: [c], selected: a), c)
+        XCTAssertEqual(ListLanding.newTask.resolve(oldRows: old, newRows: [a, d, b, c], selected: a), d)
+        XCTAssertEqual(ListLanding.newTask.resolve(oldRows: old, newRows: old, selected: c), c)
+        XCTAssertEqual(ListLanding.top.resolve(oldRows: old, newRows: [c, a], selected: a), c)
+        XCTAssertEqual(ListLanding.keep.resolve(oldRows: old, newRows: [c, b, a], selected: b), b)
+        XCTAssertEqual(ListLanding.keep.resolve(oldRows: old, newRows: [a, c], selected: b), c)
+        XCTAssertEqual(ListLanding.keep.resolve(oldRows: [], newRows: old, selected: nil), a)
+        XCTAssertEqual(ListLanding.keep.resolve(oldRows: old, newRows: [d], selected: b), d)
+        XCTAssertNil(ListLanding.top.resolve(oldRows: old, newRows: [], selected: a))
+    }
+}

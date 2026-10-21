@@ -11,12 +11,15 @@ struct ContentView: View {
                 if let tasks = model.tasks {
                     TaskListView(tasks: tasks, generation: model.displayGeneration, preserveScroll: model.displayIsRefresh)
                 } else {
+                    // Esc leaves a one-off such as `information` for the list it came from.
                     // Taskwarrior's colours assume a black terminal, so this view stays dark.
                     TerminalTextView(
                         runs: model.display,
                         generation: model.displayGeneration,
                         fontSize: model.fontSize,
-                        preserveScroll: model.displayIsRefresh
+                        preserveScroll: model.displayIsRefresh,
+                        onCommandLine: { model.focusCommandField() },
+                        onLeave: { model.leaveTransientDisplay() }
                     )
                     .background(Color(nsColor: TerminalPalette.background))
                 }
@@ -24,6 +27,7 @@ struct ContentView: View {
             .onGeometryChange(for: CGSize.self) { $0.size } action: { size in
                 model.displaySizeChanged(size)
             }
+            .background(DisplayFocus(request: model.displayFocusRequest, showsList: model.tasks != nil))
 
             // The log shows ANSI-coloured output too, so the bottom of the window stays dark
             // even when the list follows a light system appearance.
@@ -37,7 +41,8 @@ struct ContentView: View {
                     fontSize: model.fontSize,
                     history: model.history,
                     focusRequest: model.focusRequest,
-                    onSubmit: { model.submit() }
+                    onSubmit: { model.submit() },
+                    onLeave: { model.focusDisplay() }
                 )
                 .padding(8)
             }
@@ -53,10 +58,10 @@ struct ContentView: View {
             ),
             presenting: model.pendingConfirmation
         ) { confirmation in
-            Button("Cancel", role: .cancel) { model.focusCommandField() }
+            Button("Cancel", role: .cancel) { model.focusDisplay() }
             Button("Run", role: .destructive) {
                 confirmation.proceed()
-                model.focusCommandField()
+                model.focusDisplay()
             }
         } message: { confirmation in
             Text(confirmation.message)

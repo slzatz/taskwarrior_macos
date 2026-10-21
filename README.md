@@ -52,10 +52,17 @@ expanded, and no other program can be run from the field.
   command line too, and shows the listing again without the old project. The
   projects offered are those inside the context, nested by subproject; when there are
   none (a context on a project without subprojects) the project menu is left out.
-  The rows are exactly the report's, in its order, with the context applied. Select
+  The rows are exactly the report's, in its order, with the context applied. The app
+  starts with the list focused on its first task. Select
   a row (arrows, or **j** / **k**) and press **Space** (or right-click → Done) to mark it done; double-click or
-  **Return** shows `information`; right-click also has start/stop, delete and Copy UUID.
-  **:** moves to the command line.
+  **Return** shows `information` (**Esc** there goes back to the list, on the same task);
+  right-click also has start/stop, delete and Copy UUID.
+  **:** moves to the command line (from the raw view too). As with vim's `:` line, you go
+  back to the list from it either way: **Return** runs the line, **Esc** drops it. After
+  `5 done`, `3 modify …` or a row action the selection is on that task, or on the row that
+  took its place if it left the list; after `add`, on the new task if the list shows it;
+  after a new listing, on its first row; after anything else (`sync`, `show`, …) it stays
+  where it was.
   **e** (or right-click → Edit Description) edits the description in its row with vi keys,
   starting in normal mode on the last character: motions (`h l w b e W B E 0 ^ $ f t F T ; ,`),
   `x X r s S C D ~ p P`, `i a I A`, `d c y` with a motion or text object (`iw aw`, quotes,
@@ -67,7 +74,8 @@ expanded, and no other program can be run from the field.
   Graphs, `information` and other non-task output always use the raw view. The list
   follows the system light/dark appearance; the raw view stays dark because
   taskwarrior's colours assume a black terminal.
-- **Up / Down** walk the command history (kept between launches). **Esc** clears the field.
+- **Up / Down** walk the command history (kept between launches), so **:** then **Up**
+  repeats or fixes the last line. **Esc** clears the field and goes back to the list.
 - **⌘=** / **⌘-** / **⌘0** change the font size; the report is re-run so columns fit the window.
 - **⌘R** re-runs the current listing, **⌘L** focuses the command field,
   **⌘⇧O** shows or hides the output pane, **⌘K** clears it.
@@ -135,7 +143,7 @@ for all projects), `@context personal` (`@context none`). `@context` runs
 `@edit 3` opens task 3's description editor as **e** does; `@edit 3 new text` saves
 `new text` as Return would. `@keys 0cwnew<Esc><CR>` types keys in vim notation
 (`<Esc> <CR> <BS> <Left> <Right> <Up> <Down> <C-w>`) as real key events. The dump below
-includes the window's first responder, which is where keys go.
+includes the window's first responder, which is where keys go, and the selected task.
 
 `TASKWARRIOR_APP_DUMP=1` additionally prints the view hierarchy, the header menus'
 choices and any confirmation the app would have asked for.

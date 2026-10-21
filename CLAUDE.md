@@ -107,6 +107,17 @@ after modifications or when the window geometry changes. Views are thin.
   key beeped. `ViLineField` focuses itself from `viewDidMoveToWindow` (one async hop wasn't
   always enough), and on Return / Esc makes the enclosing `NSTableView` first responder
   before the field is removed. `TASKWARRIOR_APP_DUMP` prints the first responder.
+- **The command line is visited, like vim's `:` line.** `:` (list, text view, row editor)
+  goes there; Return (`submit`, even for an empty line or a failing command) and Esc both
+  call `focusDisplay()`, at once, so keys typed during a slow `sync` reach the list. The app
+  starts in the list. The selection is the model's (`selectedUUID`, kept while text is shown):
+  `ListLanding.intent` is worked out from the typed line against the last listed tasks
+  (`listed`) and `resolve`d in `showList`; keep landing rules there, with a test. Focus is
+  moved by `DisplayFocus` (AppKit, the same `@FocusState` trap as above): a request always
+  moves it to the table or `TerminalNSTextView`, waiting until the view for what is shown now
+  is in the window; a list ⇄ text swap moves it only from the old display view or from
+  nowhere, never from the command line. Esc in the text view leaves a one-off
+  (`displayIsTransient`, i.e. `information`) for the current view.
 - **vimango notes are linked by the task's uuid**, the protocol taskchamp and VimNotes use on iOS
   (`TaskwarriorCore/VimangoLink.swift`). "Open/Create vimango Note" (row menu, or a click on the
   indigo icon) opens `vimango://task-note?uuid=&title=&project=`. vimango_hybrid finds the note

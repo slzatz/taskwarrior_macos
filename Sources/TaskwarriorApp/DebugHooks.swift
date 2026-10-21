@@ -112,6 +112,8 @@ enum DebugHooks {
         if ProcessInfo.processInfo.environment["TASKWARRIOR_APP_DUMP"] == "1" {
             var out = "window frame: \(window.frame) contentView: \(view.frame) appearance: \(window.effectiveAppearance.name.rawValue)\n"
             out += "first responder: \(window.firstResponder.map { String(describing: type(of: $0)) } ?? "none")\n"
+            let selected = model.selectedUUID.map { uuid in model.tasks?.first { $0.uuid == uuid }.map { "id \($0.number)" } ?? uuid }
+            out += "selected: \(selected ?? "none")  command line: \(model.commandText.debugDescription)\n"
             func walk(_ v: NSView, depth: Int) {
                 let pad = String(repeating: "  ", count: depth)
                 out += "\(pad)\(type(of: v)) frame=\(v.frame)\n"

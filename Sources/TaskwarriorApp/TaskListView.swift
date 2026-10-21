@@ -11,8 +11,6 @@ struct TaskListView: View {
     var generation: Int
     var preserveScroll: Bool
 
-    @State private var selection: String?
-
     private var fontSize: Double { model.fontSize }
 
     /// Digits in the widest id, so the id column fits it; 0 when no task has one
@@ -22,12 +20,16 @@ struct TaskListView: View {
         return widest > 0 ? String(widest).count : 0
     }
 
+    /// The model owns it: a command lands it on a task (`ListLanding`).
+    private var selection: String? { model.selectedUUID }
+
     var body: some View {
+        @Bindable var model = model
         VStack(spacing: 0) {
             header
             Divider()
             ScrollViewReader { proxy in
-                List(selection: $selection) {
+                List(selection: $model.selectedUUID) {
                     ForEach(tasks) { task in
                         TaskRow(task: task, pins: model.listPins, idDigits: idDigits, fontSize: fontSize,
                                 isEditing: model.editingUUID == task.uuid,
@@ -76,7 +78,7 @@ struct TaskListView: View {
                     guard press.modifiers.isEmpty, model.editingUUID == nil, !tasks.isEmpty else { return .ignored }
                     let index = tasks.firstIndex { $0.uuid == selection }
                     let next = index.map { min(max($0 + (press.key == "j" ? 1 : -1), 0), tasks.count - 1) } ?? 0
-                    selection = tasks[next].uuid
+                    model.selectedUUID = tasks[next].uuid
                     proxy.scrollTo(tasks[next].uuid)
                     return .handled
                 }
@@ -86,8 +88,12 @@ struct TaskListView: View {
                     return .handled
                 }
                 .onChange(of: generation) {
-                    if !tasks.contains(where: { $0.uuid == selection }) { selection = nil }
                     if !preserveScroll, let first = tasks.first { proxy.scrollTo(first.uuid, anchor: .top) }
+                    // Where the command landed, e.g. a new task further down.
+                    if let selection { proxy.scrollTo(selection) }
+                }
+                .onAppear {
+                    if let selection { proxy.scrollTo(selection) }
                 }
                 .overlay {
                     if tasks.isEmpty {
@@ -212,7 +218,7 @@ struct TaskListView: View {
         Button("Show Info") { model.perform("information", on: task) }
         if !task.isDeleted {
             Button("Edit Description") {
-                selection = task.uuid
+                model.selectedUUID = task.uuid
                 model.editingUUID = task.uuid
             }
         }

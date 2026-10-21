@@ -2,13 +2,16 @@ import AppKit
 import SwiftUI
 
 /// The single-line command input. AppKit is used so Up/Down reliably walk the
-/// history and Return submits without fighting SwiftUI's key handling.
+/// history and Return submits without fighting SwiftUI's key handling. Like vim's `:` line it
+/// is visited from the list: Return runs the line and Esc drops it, and both go back
+/// (`onSubmit` / `onLeave`).
 struct CommandField: NSViewRepresentable {
     @Binding var text: String
     var fontSize: Double
     var history: [String]
     var focusRequest: Int
     var onSubmit: () -> Void
+    var onLeave: () -> Void
 
     func makeCoordinator() -> Coordinator { Coordinator(parent: self) }
 
@@ -24,7 +27,6 @@ struct CommandField: NSViewRepresentable {
         field.cell?.wraps = false
         field.cell?.isScrollable = true
         field.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        DispatchQueue.main.async { field.window?.makeFirstResponder(field) }
         return field
     }
 
@@ -70,6 +72,7 @@ struct CommandField: NSViewRepresentable {
             case #selector(NSResponder.cancelOperation(_:)):
                 historyIndex = nil
                 set("", on: control)
+                parent.onLeave()
                 return true
             default:
                 return false

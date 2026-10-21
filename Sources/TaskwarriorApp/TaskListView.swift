@@ -46,10 +46,24 @@ struct TaskListView: View {
                         }
                             .tag(task.uuid)
                             .id(task.uuid)
+                            // The selected row is painted here, in vimango_hybrid's gray; the
+                            // table's own (blue) highlight is off (`PlainSelectionStyle`).
+                            .listRowBackground(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .fill(task.uuid == selection ? ListPalette.selection : Color.clear)
+                            )
+                            .listRowInsets(EdgeInsets(top: 0, leading: 8, bottom: 0, trailing: 7))
+                            .listRowSeparator(.hidden)
                     }
                 }
-                .listStyle(.inset)
+                // Plain, as in vimango_hybrid's note list: it honours the row-height floor and
+                // the zero vertical insets, which set the 20pt pitch (inset and sidebar don't).
+                .listStyle(.plain)
+                .environment(\.defaultMinListRowHeight, 20)
+                // The list's own background off, so the palette's behind it shows through.
+                .scrollContentBackground(.hidden)
                 .alternatingRowBackgrounds(.disabled)
+                .background(PlainSelectionStyle())
                 .contextMenu(forSelectionType: String.self) { uuids in
                     if let task = task(for: uuids) { menu(for: task) }
                 } primaryAction: { uuids in
@@ -107,7 +121,7 @@ struct TaskListView: View {
                 }
             }
         }
-        .background(Color(nsColor: .controlBackgroundColor))
+        .background(ListPalette.background)
     }
 
     /// Report ▾ · context ▾ · project ▾, then the rest of the typed filter and the count.
@@ -308,7 +322,8 @@ private struct TaskRow: View {
                 editor
             } else {
                 Text(task.description)
-                    .font(.system(size: fontSize + 1))
+                    .font(.system(size: fontSize))
+                    .foregroundStyle(ListPalette.title)
                     .lineLimit(1)
                     .truncationMode(.tail)
                     .strikethrough(task.isDeleted, color: .red)
@@ -332,16 +347,13 @@ private struct TaskRow: View {
             trailing
                 .layoutPriority(1)
         }
-        // Separators start under the text on every row, not wherever SwiftUI guesses.
-        .alignmentGuide(.listRowSeparatorLeading) { $0[.leading] }
-        .padding(.vertical, 2)
         .opacity(task.isCompleted || task.isDeleted ? 0.45 : 1)
     }
 
     /// The field, then its mode as a badge (insert stands out, since Esc there doesn't cancel).
     private var editor: some View {
         HStack(alignment: .firstTextBaseline, spacing: 6) {
-            ViLineField(initialText: task.description, fontSize: fontSize + 1,
+            ViLineField(initialText: task.description, fontSize: fontSize,
                         onCommit: commit, onCancel: cancel, onCommandLine: toCommandLine,
                         onModeChange: { editorMode = $0 })
             Badge(text: editorMode == .normal ? "NORMAL" : "INSERT",
@@ -438,6 +450,66 @@ private struct TaskRow: View {
         if task.isOverdue() { return .red }
         if Calendar.current.isDateInToday(due), task.isPending { return .orange }
         return .secondary
+    }
+}
+
+/// Turns off the enclosing table's selection highlight and focus ring (the accent blue) so the rows' own
+/// `listRowBackground` shows the selection. The table keeps its selection, so arrows, the
+/// context menu and double-click still work. Set again on every update, in case SwiftUI resets it.
+private struct PlainSelectionStyle: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView { NSView() }
+
+    func updateNSView(_ view: NSView, context: Context) {
+        // A run-loop turn later: on the first update the view isn't in the hierarchy yet.
+        DispatchQueue.main.async { [weak view] in
+            guard let view, let table = Self.table(near: view) else { return }
+            if table.selectionHighlightStyle != .none { table.selectionHighlightStyle = .none }
+            // Arrow keys otherwise draw a blue focus ring on the selected row's edge.
+            if table.focusRingType != .none { table.focusRingType = .none }
+        }
+    }
+
+    /// The table this background belongs to: the first one under an ancestor of the view.
+    private static func table(near view: NSView) -> NSTableView? {
+        var ancestor = view.superview
+        while let current = ancestor {
+            if let table = firstTable(in: current) { return table }
+            ancestor = current.superview
+        }
+        return nil
+    }
+
+    private static func firstTable(in view: NSView) -> NSTableView? {
+        if let table = view as? NSTableView { return table }
+        for subview in view.subviews {
+            if let found = firstTable(in: subview) { return found }
+        }
+        return nil
+    }
+}
+
+/// A deliberate twin of vimango_hybrid's `ListPalette` (`Organizer/OrganizerView.swift`) so the
+/// two apps' lists read as a pair; change both together.
+private enum ListPalette {
+    static let background = dynamic(light: 0xFF_FF_FF, dark: 0x1E_1E_1E)
+    /// The description; ids, badges and dates keep their own secondary and state colours.
+    static let title = dynamic(light: 0x33_33_33, dark: 0xDD_DD_DD)
+    /// The selected row's fill.
+    static let selection = dynamic(light: 0xD4_D4_D4, dark: 0x4D_4D_4D)
+
+    /// Resolves per appearance, so the list repaints itself when the system flips.
+    private static func dynamic(light: Int, dark: Int) -> Color {
+        Color(nsColor: NSColor(name: nil) { appearance in
+            appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? NSColor(rgb: dark) : NSColor(rgb: light)
+        })
+    }
+}
+
+private extension NSColor {
+    /// `0xRRGGBB`.
+    convenience init(rgb: Int) {
+        self.init(srgbRed: CGFloat((rgb >> 16) & 0xFF) / 255, green: CGFloat((rgb >> 8) & 0xFF) / 255,
+                  blue: CGFloat(rgb & 0xFF) / 255, alpha: 1)
     }
 }
 

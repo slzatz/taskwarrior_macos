@@ -141,6 +141,15 @@ after modifications or when the window geometry changes. Views are thin.
 - Only the text view, log pane and command field are forced dark; the list follows the system.
   `NSView`s in the dark area get `.darkAqua` explicitly because SwiftUI's colour scheme
   environment doesn't reach them.
+- **The list's rows twin vimango_hybrid's note list**: `.plain` style with a 20pt
+  `defaultMinListRowHeight` and zero vertical row insets (inset and sidebar styles ignore both),
+  the description at `fontSize`. The selection stays bound (arrows, context menu, double-click)
+  but its blue is off: `PlainSelectionStyle` sets the table's `selectionHighlightStyle` and
+  `focusRingType` to `.none`, and the row paints `ListPalette.selection` (vimango_hybrid's gray)
+  as its `listRowBackground`. The description and list background also use vimango's
+  `ListPalette` colours, not `.primary` / `controlBackgroundColor` (whose text is a shade
+  whiter). A change to any of them belongs in both apps. Snapshot PNGs are in the display's
+  profile, not sRGB: compare pixel values between snapshots, not with hex from the code.
 - Command output for listings goes to the status line, not the log, so refreshes stay quiet.
 - All display colour comes from the user's theme via `rc._forcecolor=on`; the app adds none of its own.
   `dark-256.theme` only colours state (due/overdue/active/recurring/blocked), so a list of plain

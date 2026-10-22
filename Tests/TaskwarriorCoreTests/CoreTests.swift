@@ -422,3 +422,32 @@ final class ListLandingTests: XCTestCase {
         XCTAssertNil(ListLanding.top.resolve(oldRows: old, newRows: [], selected: a))
     }
 }
+
+final class SelectionTargetTests: XCTestCase {
+    let catalog = CommandCatalog.fallback
+    let uuid = "bbbbbbbb-0000-4000-8000-000000000002"
+
+    private func targeted(_ line: String) -> [String]? {
+        let parsed = ParsedCommand.parse(line, catalog: catalog)
+        guard SelectionTarget.wantsTarget(parsed) else { return nil }
+        return SelectionTarget.targeting(parsed, uuid: uuid).tokens
+    }
+
+    func testBareCommandsTakeTheSelection() {
+        XCTAssertEqual(targeted("done"), [uuid, "done"])
+        XCTAssertEqual(targeted("task rm"), [uuid, "rm"])
+        XCTAssertEqual(targeted("info"), [uuid, "info"])
+        XCTAssertEqual(targeted("modify due:fri +x"), [uuid, "modify", "due:fri", "+x"])
+        XCTAssertEqual(targeted("rc.bulk=0 annotate hi"), ["rc.bulk=0", uuid, "annotate", "hi"])
+        let parsed = SelectionTarget.targeting(ParsedCommand.parse("modify +x", catalog: catalog), uuid: uuid)
+        XCTAssertEqual(parsed.filter, [uuid])
+        XCTAssertEqual(parsed.arguments, ["+x"])
+        XCTAssertEqual(parsed.command?.name, "modify")
+    }
+
+    func testNamedTasksAndOtherCommandsRunAsTyped() {
+        for line in ["5 done", "+x done", "project:work modify +y", "add x", "log x", "undo", "next", "sync", "count", ""] {
+            XCTAssertNil(targeted(line), line)
+        }
+    }
+}

@@ -34,7 +34,7 @@ public enum ListLanding: Sendable, Equatable {
 
     /// The listed tasks a filter of only ids (`5`, `5,7`, `3-5`) and uuids (whole or the 8-digit
     /// short form) names, in list order; nil for any other filter, or when none of them is listed.
-    static func targets(of filter: [String], in rows: [TaskItem]) -> [String]? {
+    public static func targets(of filter: [String], in rows: [TaskItem]) -> [String]? {
         guard !filter.isEmpty else { return nil }
         var ids = Set<Int>()
         var uuids: [String] = []

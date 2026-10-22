@@ -39,8 +39,7 @@ arguments) and handed straight to the `task` binary. Globs, `$VARIABLES`, pipes,
 expanded, and no other program can be run from the field.
 
 - **List / Raw** (the switch in the output pane header, or **⌘1** / **⌘2**) chooses how
-  reports are drawn. List shows each task as one line: its id (for typing `5 done`;
-  blank for completed and deleted tasks), the description in the system font,
+  reports are drawn. List shows each task as one line: the description in the system font,
   then project, priority and tag badges, and a short due date at the right (red when
   overdue). A task with no due date shows its scheduled date there instead, after a
   calendar glyph, so the `facts`-style reports read as they do in Raw. Badges that the context or filter already pin are left out: under the
@@ -58,8 +57,14 @@ expanded, and no other program can be run from the field.
   **Return** shows `information` (**Esc** there goes back to the list, on the same task);
   right-click also has start/stop, delete and Copy UUID.
   **:** moves to the command line (from the raw view too). As with vim's `:` line, you go
-  back to the list from it either way: **Return** runs the line, **Esc** drops it. After
-  `5 done`, `3 modify …` or a row action the selection is on that task, or on the row that
+  back to the list from it either way: **Return** runs the line, **Esc** drops it.
+  A command that acts on tasks typed without a filter acts on the selected one, as an ex
+  command does on vim's current line: `:done`, `:modify due:fri +home`, `:annotate …`,
+  `:start`, `:delete` (also `append`, `prepend`, `denotate`, `duplicate`, `info`, `purge`).
+  This also works on a task's `information` page, but nowhere else in the raw view, where the
+  selection isn't shown. A filter is used as typed (`5 done`, `+home done`); the ids are in
+  the raw view. After
+  `:done`, `5 done`, `3 modify …` or a row action the selection is on that task, or on the row that
   took its place if it left the list; after `add`, on the new task if the list shows it;
   after a new listing, on its first row; after anything else (`sync`, `show`, …) it stays
   where it was.

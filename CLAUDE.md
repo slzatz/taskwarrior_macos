@@ -89,6 +89,14 @@ after modifications or when the window geometry changes. Views are thin.
 - Row actions in the list call `AppModel.perform`, which goes through `run(line:)` with the
   task's UUID (ids are renumbered by the refresh after each modification), so the usual
   confirmation, log and refresh rules apply. Don't add a separate path.
+- **A bare command acts on the selected task** (`SelectionTarget`): `done`, `modify …`, `delete`
+  and the other commands on existing tasks, typed with no filter (`rc.` overrides aside), get
+  the selection's uuid inserted before the command word in `run(line:)`, which is also
+  `perform`'s path, so add no separate one. It is used only while the list is shown or on the
+  `information` page of one task (`shownTaskUUID`); anywhere else the selection is invisible
+  and the line is refused with a message. Such a line meant nothing before, since
+  `rc.allow.empty.filter=no` makes taskwarrior refuse it. The list shows no ids for this
+  reason; typed ids still work, and the raw view shows them.
 - Inline description editing (`e` / Edit Description, `AppModel.editingUUID`) commits
   `modify description:<text>` as **one** token, quoted with `ShellTokenizer.join`. Taskwarrior 3
   keeps a single `description:` argv whole (`+x`, `due:`, `--`, a leading `-` stay text), whereas

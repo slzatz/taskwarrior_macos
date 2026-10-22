@@ -13,13 +13,6 @@ struct TaskListView: View {
 
     private var fontSize: Double { model.fontSize }
 
-    /// Digits in the widest id, so the id column fits it; 0 when no task has one
-    /// (completed and deleted tasks), which leaves the column out.
-    private var idDigits: Int {
-        let widest = tasks.map(\.number).max() ?? 0
-        return widest > 0 ? String(widest).count : 0
-    }
-
     /// The model owns it: a command lands it on a task (`ListLanding`).
     private var selection: String? { model.selectedUUID }
 
@@ -31,7 +24,7 @@ struct TaskListView: View {
             ScrollViewReader { proxy in
                 List(selection: $model.selectedUUID) {
                     ForEach(tasks) { task in
-                        TaskRow(task: task, pins: model.listPins, idDigits: idDigits, fontSize: fontSize,
+                        TaskRow(task: task, pins: model.listPins, fontSize: fontSize,
                                 isEditing: model.editingUUID == task.uuid,
                                 commit: { text in
                                     endEditing(task)
@@ -295,7 +288,6 @@ private struct TaskRow: View {
     let task: TaskItem
     /// What the context and filters pin. Every row would repeat it, so it gets no badge.
     let pins: FilterPins
-    let idDigits: Int
     let fontSize: Double
     /// The description is a vi-mode field (`ViLineField`): Return commits, Esc in normal mode or
     /// clicking elsewhere cancels, `:` cancels and goes to the command line.
@@ -315,9 +307,6 @@ private struct TaskRow: View {
     /// first, so a long description is what gets cut short; its tooltip has the full text.
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 6) {
-            if idDigits > 0 {
-                idColumn
-            }
             if isEditing {
                 editor
             } else {
@@ -360,19 +349,6 @@ private struct TaskRow: View {
                   color: editorMode == .normal ? .gray : .green, fontSize: fontSize, tintedText: true)
                 .monospaced()
         }
-    }
-
-    /// The id for typing commands (`5 done`), right-aligned in a column as wide as the widest
-    /// id; blank for a task without one. Row actions still use the uuid, since ids renumber.
-    private var idColumn: some View {
-        ZStack(alignment: .trailing) {
-            Text(String(repeating: "0", count: idDigits)).hidden()
-            if task.number > 0 {
-                Text(String(task.number)).foregroundStyle(.secondary)
-            }
-        }
-        .font(.system(size: fontSize).monospacedDigit())
-        .accessibilityLabel(task.number > 0 ? "Task \(task.number)" : "")
     }
 
     private var badges: some View {

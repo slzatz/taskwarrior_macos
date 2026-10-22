@@ -20,7 +20,7 @@ struct CommandField: NSViewRepresentable {
         field.appearance = NSAppearance(named: .darkAqua)
         field.delegate = context.coordinator
         field.font = NSFont.monospacedSystemFont(ofSize: fontSize, weight: .regular)
-        field.placeholderString = "task command  (e.g. next · 5 done · add Buy milk due:tomorrow · sync)"
+        field.placeholderString = "task command  (e.g. next · done · modify due:fri · add Buy milk · sync)"
         field.isBezeled = true
         field.bezelStyle = .roundedBezel
         field.usesSingleLineMode = true

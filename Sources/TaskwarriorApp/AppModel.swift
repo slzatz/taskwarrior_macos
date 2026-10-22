@@ -56,6 +56,8 @@ final class AppModel {
     private var pendingLanding = ListLanding.keep
     /// The text shown is a one-off (`information`), not the current view; Esc goes back to it.
     private(set) var displayIsTransient = false
+    /// The task an `information` page shows, which bare commands act on there (`SelectionTarget`).
+    private var shownTaskUUID: String?
     /// Every project (`task _projects`, which ignores the context), for the header's menu.
     private(set) var projects: [String] = []
     /// Defined contexts (`task _context`), for the header's menu.
@@ -190,7 +192,15 @@ final class AppModel {
             appendLog(command: line, text: "taskwarrior is not available.", isError: true)
             return
         }
-        let parsed = ParsedCommand.parse(line, catalog: catalog)
+        var parsed = ParsedCommand.parse(line, catalog: catalog)
+        // `done` alone means the selected task, like an ex command on vim's current line.
+        if SelectionTarget.wantsTarget(parsed) {
+            guard let uuid = targetUUID else {
+                appendLog(command: parsed.displayString, text: "No task selected. Select one in the list, or name it: 5 done, +home done.", isError: true)
+                return
+            }
+            parsed = SelectionTarget.targeting(parsed, uuid: uuid)
+        }
         let action = DisplayPolicy.action(for: parsed, catalog: catalog)
         let landing = ListLanding.intent(for: parsed, catalog: catalog, current: currentView, rows: listed)
         if case .refuse(let reason) = action {
@@ -206,12 +216,17 @@ final class AppModel {
                 self?.ask(parsed, action: action, landing: landing, message: "Run “\(parsed.displayString)”?")
             }
         case .countAbove(let threshold):
+            // Named by its description rather than a uuid nobody reads.
+            let subject = namedTask(parsed).map { task in
+                "\(parsed.effectiveCommand(in: catalog)?.name.capitalized ?? "Change") “\(task.description)”?"
+            }
             enqueueWork { [weak self] in
                 guard let self else { return }
                 let count = await self.countMatches(filter: parsed.filter)
                 if let count, count > threshold {
                     let noun = count == 1 ? "task" : "tasks"
-                    self.ask(parsed, action: action, landing: landing, message: "“\(parsed.displayString)” will affect \(count) \(noun).")
+                    let message = count == 1 ? subject : nil
+                    self.ask(parsed, action: action, landing: landing, message: message ?? "“\(parsed.displayString)” will affect \(count) \(noun).")
                 } else {
                     // At 0, taskwarrior reports "No matches" itself.
                     self.pendingLanding = landing
@@ -410,6 +425,9 @@ final class AppModel {
             case .replaceDisplay(let remember):
                 displayIsRefresh = remember && currentView?.tokens == parsed.tokens
                 display = ANSIParser.parse(output.primaryOutput)
+                shownTaskUUID = remember || !output.succeeded ? nil : shownTask(by: parsed)
+                // So Esc back to the list lands on it.
+                if let shownTaskUUID { selectedUUID = shownTaskUUID }
                 tasks = nil
                 displayIsTransient = !remember
                 displayGeneration += 1
@@ -461,6 +479,7 @@ final class AppModel {
         pendingLanding = .keep
         listed = items
         tasks = items
+        shownTaskUUID = nil
         displayIsTransient = false
         // Words after a report's name filter it too (`next +finance`).
         let typed = parsed.filter + parsed.arguments
@@ -538,6 +557,31 @@ final class AppModel {
 
     // MARK: - Helpers
 
+    /// The task a bare command acts on: the list's selection, or the task an `information`
+    /// page shows; nil anywhere else, where a selection would be one the user can't see.
+    private var targetUUID: String? {
+        tasks != nil ? selectedUUID : shownTaskUUID
+    }
+
+    /// The one listed task a line's filter names: by its uuid, or by id while the list is shown
+    /// (the text view's ids may have been renumbered since the last list).
+    private func namedTask(_ parsed: ParsedCommand) -> TaskItem? {
+        guard let named = ListLanding.targets(of: parsed.filter, in: listed), named.count == 1,
+              let task = listed.first(where: { $0.uuid == named[0] }),
+              tasks != nil || parsed.filter == [task.uuid] else { return nil }
+        return task
+    }
+
+    /// The task an `information` line shows when it names one: a uuid (a vimango link's task
+    /// need not be listed) or a listed task.
+    private func shownTask(by parsed: ParsedCommand) -> String? {
+        guard parsed.effectiveCommand(in: catalog)?.name == "information" else { return nil }
+        if parsed.filter.count == 1, let only = parsed.filter.first, UUID(uuidString: only) != nil {
+            return only.lowercased()
+        }
+        return namedTask(parsed)?.uuid
+    }
+
     private func appendLog(command: String, text: String, isError: Bool) {
         let trimmed = text.trimmingCharacters(in: .newlines)
         log.append(LogEntry(command: command, runs: ANSIParser.parse(trimmed), isError: isError))
@@ -555,6 +599,7 @@ final class AppModel {
     private func showMessage(_ text: String) {
         display = [StyledRun(text: text)]
         tasks = nil
+        shownTaskUUID = nil
         displayIsTransient = false
         displayGeneration += 1
         displayIsRefresh = false

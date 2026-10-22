@@ -64,7 +64,8 @@ struct HelpSection: Identifiable {
             .init(keys: "[filter] command [args]", summary: "As in a terminal, with or without the leading task: 5 done, project:work next, add Buy milk due:tomorrow"),
             .init(keys: "Reports", summary: "Replace the view; every task is shown (no page limit), and the view is re-run after each change"),
             .init(keys: "Changes", summary: "Logged in the output pane; delete, purge, undo and bulk changes ask first"),
-            .init(keys: "Ids", summary: "Renumber after changes; the list's own actions use the task's uuid"),
+            .init(keys: "done, modify …, delete", summary: "With no filter, act on the selected task (also from its info page), like an ex command on vim's current line"),
+            .init(keys: "5 done, +home done", summary: "A filter is used as typed; ids are shown in the raw view and renumber after changes"),
             .init(keys: "No shell", summary: "Quoting works; globs, pipes and $VAR don't. edit and execute aren't available"),
         ]),
     ]

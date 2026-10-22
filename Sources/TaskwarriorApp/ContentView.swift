@@ -100,8 +100,12 @@ struct LogPane: View {
                     .lineLimit(1)
                     .truncationMode(.tail)
                 Spacer(minLength: 8)
-                if model.isRunning {
+                // A sync's spinner is the cloud's.
+                if model.isRunning, !model.isSyncing {
                     ProgressView().controlSize(.small)
+                }
+                if model.syncConfigured {
+                    SyncButton(fontSize: logFontSize)
                 }
                 Picker("Display", selection: $model.displayMode) {
                     Text("List").tag(DisplayMode.list)
@@ -154,4 +158,43 @@ struct LogPane: View {
         }
     }
 
+}
+
+/// The cloud in the status bar: what a `task sync` would do (`SyncState`), as in taskchamp.
+/// Orange with a count of tasks to send up, a down arrow when the server has changes, an
+/// exclamation when the last sync failed; a spinner while syncing. Clicking runs `sync` like a
+/// typed one. Its width never changes, so the bar doesn't shift as the count comes and goes.
+struct SyncButton: View {
+    @Environment(AppModel.self) private var model
+    let fontSize: Double
+
+    var body: some View {
+        let state = model.syncState
+        Button {
+            model.run(line: "sync")
+        } label: {
+            HStack(spacing: 3) {
+                ZStack {
+                    Image(systemName: "icloud").hidden()
+                    if model.isSyncing {
+                        ProgressView().controlSize(.small)
+                    } else {
+                        Image(systemName: state.symbol)
+                    }
+                }
+                ZStack(alignment: .leading) {
+                    Text(verbatim: "99+").hidden()
+                    if !model.isSyncing, let count = state.unsyncedTasks, count > 0 {
+                        Text(verbatim: count > 99 ? "99+" : String(count))
+                    }
+                }
+                .monospacedDigit()
+            }
+            .font(.system(size: fontSize, weight: .semibold))
+            .foregroundStyle(state.isDue && !model.isSyncing ? Color.orange : Color(nsColor: TerminalPalette.dimForeground))
+        }
+        .buttonStyle(.plain)
+        .disabled(model.isRunning)
+        .help(model.isSyncing ? "Syncing…" : state.summary)
+    }
 }

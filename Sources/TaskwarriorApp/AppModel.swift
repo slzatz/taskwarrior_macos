@@ -84,6 +84,13 @@ final class AppModel {
     /// The help sheet (`help`, `?`, Help menu).
     var helpOpen = false
 
+    // MARK: Sync
+    /// What a `task sync` would do, for the status bar's cloud.
+    private(set) var syncState = SyncState()
+    /// A sync backend is set up; without one the cloud isn't shown.
+    private(set) var syncConfigured = false
+    private(set) var isSyncing = false
+
     // MARK: Input
     var commandText = ""
     private(set) var history: [String] { didSet { defaults.set(Array(history.suffix(500)), forKey: Keys.history) } }
@@ -116,6 +123,14 @@ final class AppModel {
     /// Links that arrived before `bootstrap` found taskwarrior (a link that launches the app
     /// does); handled once it has.
     private var pendingURLs: [URL] = []
+    /// `data.location`, where taskchampion's database is read for the sync state.
+    private var dataDirectory: String?
+    /// The server the probe asks; nil for backends it can't ask.
+    private var syncServer: SyncServer?
+    private var lastProbe: Date?
+    /// Bumped by each sync, so a probe that a sync overlapped drops its answer.
+    private var syncGeneration = 0
+    private var probeTasks: [Task<Void, Never>] = []
 
     private enum Keys {
         static let fontSize = "fontSize"
@@ -154,6 +169,9 @@ final class AppModel {
         currentContext = env.context
         contextFilter = env.config["context.\(env.context).read"] ?? env.config["context.\(env.context)"] ?? ""
         runner = TaskRunner(executable: executable, baseOverrides: env.baseOverrides)
+        syncConfigured = SyncServer.isConfigured(config: env.config)
+        syncServer = SyncServer(config: env.config)
+        dataDirectory = env.config["data.location"]
 
         if let names = await quietLines(["_context"]) { contexts = names }
 
@@ -168,6 +186,62 @@ final class AppModel {
         let queued = pendingURLs
         pendingURLs = []
         queued.forEach(handle(url:))
+        if syncConfigured { startSyncProbes() }
+    }
+
+    // MARK: - Sync state
+
+    /// Checks the server, never syncs: once the first listing is in, each time the app comes to
+    /// the front (debounced in `probeRemote`), and every 15 minutes for a window left open.
+    private func startSyncProbes() {
+        probeTasks = [
+            Task { [weak self] in
+                await self?.waitUntilIdle()
+                await self?.refreshLocalSyncState()
+                await self?.probeRemote(force: true)
+            },
+            Task { [weak self] in
+                for await _ in NotificationCenter.default.notifications(named: NSApplication.didBecomeActiveNotification) {
+                    await self?.probeRemote()
+                }
+            },
+            Task { [weak self] in
+                while !Task.isCancelled {
+                    try? await Task.sleep(for: .seconds(15 * 60), tolerance: .seconds(60))
+                    await self?.probeRemote()
+                }
+            },
+        ]
+    }
+
+    /// Asks the server whether it has a version this replica hasn't pulled. Silent: a failure
+    /// blanks the answer rather than leaving one it can no longer vouch for. Skipped while a
+    /// command runs and within a minute of the last probe, unless forced.
+    func probeRemote(force: Bool = false) async {
+        guard syncConfigured, !isRunning else { return }
+        if !force, let lastProbe, Date().timeIntervalSince(lastProbe) < 60 { return }
+        lastProbe = Date()
+        let generation = syncGeneration
+        guard let replica = await readReplica() else {
+            syncState.unsyncedTasks = nil
+            return
+        }
+        syncState.unsyncedTasks = replica.unsyncedTasks
+        guard let syncServer else { return }
+        let ahead = await syncServer.isAhead(of: replica.baseVersion)
+        guard generation == syncGeneration else { return }
+        syncState.serverAhead = ahead
+    }
+
+    /// Re-reads the local side, after anything that may have changed it.
+    private func refreshLocalSyncState() async {
+        guard syncConfigured else { return }
+        syncState.unsyncedTasks = await readReplica()?.unsyncedTasks
+    }
+
+    private func readReplica() async -> ReplicaState? {
+        guard let dataDirectory else { return nil }
+        return await Task.detached { ReplicaReader.read(dataDirectory: dataDirectory) }.value
     }
 
     // MARK: - Commands from the UI
@@ -415,7 +489,20 @@ final class AppModel {
             return
         }
 
+        let isSync = parsed.effectiveCommand(in: catalog)?.name == "synchronize"
+        if isSync {
+            isSyncing = true
+            syncGeneration += 1
+        }
         let result = await runInBackground(runner, arguments: parsed.tokens, height: height(for: parsed))
+        if isSync {
+            isSyncing = false
+            syncGeneration += 1
+            let succeeded = (try? result.get())?.succeeded == true
+            syncState.lastSyncFailed = !succeeded
+            // A sync pulls every version the server has.
+            if succeeded { syncState.serverAhead = false }
+        }
         switch result {
         case .failure(let error):
             appendLog(command: parsed.displayString, text: error.localizedDescription, isError: true)
@@ -450,6 +537,11 @@ final class AppModel {
             }
             if let category = parsed.effectiveCommand(in: catalog)?.category, category == .context || category == .config {
                 await refreshContextName()
+            }
+            // Listings change nothing; a modification, `undo` or `sync` may change the count.
+            switch action {
+            case .replaceDisplay: break
+            default: await refreshLocalSyncState()
             }
         }
     }

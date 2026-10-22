@@ -6,7 +6,8 @@ import TaskwarriorCore
 ///   TASKWARRIOR_APP_SCRIPT   commands separated by ";;", run after startup; `@report <name>`,
 ///                            `@project <name>|-` and `@context <name>` act as the header menus do;
 ///                            `@edit <id>` opens the row's description editor, `@edit <id> <text>` commits it;
-///                            `@keys <vim notation>` types into the window, e.g. `@keys ciwfoo<Esc><CR>` (also `<Up>`, `<Down>`)
+///                            `@keys <vim notation>` types into the window, e.g. `@keys ciwfoo<Esc><CR>` (also `<Up>`, `<Down>`);
+///                            `@probe` asks the sync server now, as the app does when it comes to the front
 ///   TASKWARRIOR_APP_SNAPSHOT path of a PNG to write once the script has finished
 ///   TASKWARRIOR_APP_QUIT     "1" to quit after the script / snapshot
 /// Combine with TASKDATA / TASKRC to point taskwarrior at a scratch database.
@@ -38,6 +39,7 @@ enum DebugHooks {
             case "context": model.switchContext(value)
             case "edit": edit(value, model: model)
             case "keys": await typeKeys(value)
+            case "probe": await model.probeRemote(force: true)
             default: FileHandle.standardError.write(Data("script: unknown \(line)\n".utf8))
             }
         }
@@ -127,6 +129,8 @@ enum DebugHooks {
             }
             let selected = model.selectedUUID.map { uuid in model.tasks?.first { $0.uuid == uuid }.map { "id \($0.number)" } ?? uuid }
             out += "selected: \(selected ?? "none")  command line: \(model.commandText.debugDescription)\n"
+            let sync = model.syncState
+            out += "sync: configured=\(model.syncConfigured) unsynced=\(sync.unsyncedTasks.map(String.init) ?? "nil") serverAhead=\(sync.serverAhead.map(String.init) ?? "nil") failed=\(sync.lastSyncFailed) symbol=\(sync.symbol)\n"
             func walk(_ v: NSView, depth: Int) {
                 let pad = String(repeating: "  ", count: depth)
                 out += "\(pad)\(type(of: v)) frame=\(v.frame)\n"

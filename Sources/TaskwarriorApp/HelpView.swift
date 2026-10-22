@@ -60,6 +60,12 @@ struct HelpSection: Identifiable {
             .init(keys: "⌘⇧O,  ⌘K", summary: "Show or hide the output pane; clear it"),
             .init(keys: "⌘?", summary: "This help"),
         ]),
+        HelpSection(title: "Sync cloud (status bar)", entries: [
+            .init(keys: "↑ and a number", summary: "Tasks with changes not yet synced"),
+            .init(keys: "↓", summary: "The server has changes from another machine (checked when the app comes to the front, and every 15 minutes)"),
+            .init(keys: "!", summary: "The last sync failed"),
+            .init(keys: "Click", summary: "Run task sync; nothing syncs on its own"),
+        ]),
         HelpSection(title: "Taskwarrior commands", entries: [
             .init(keys: "[filter] command [args]", summary: "As in a terminal, with or without the leading task: 5 done, project:work next, add Buy milk due:tomorrow"),
             .init(keys: "Reports", summary: "Replace the view; every task is shown (no page limit), and the view is re-run after each change"),

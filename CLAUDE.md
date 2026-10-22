@@ -146,6 +146,23 @@ after modifications or when the window geometry changes. Views are thin.
   app claims `taskchampdev` (Info.plist) so `taskchampdev://task/<uuid>`, which hybrid's
   `:task` / File > Open Task sends, shows the task here. `task/new` (creating a task from a note)
   isn't handled yet, since `task add` can't set a uuid (`task import` can).
+- **The sync cloud (`SyncButton`, `SyncState`) is the one place the app reads taskchampion's
+  database instead of the CLI**, since no command gives the base version and `task stats` counts
+  operations, not tasks. `ReplicaReader` runs two queries in one transaction on
+  `<data.location>/taskchampion.sqlite3`: the count of distinct `uuid` among unsynced `operations`
+  (taskwarrior keeps synced ones), and `sync_meta.base_version` (the nil UUID if absent). It returns nil on any
+  error, including a changed schema. The database is **WAL**: `SQLITE_OPEN_READONLY` fails (error 14)
+  whenever no `task` is running, because the `-shm` file is gone. So the connection is
+  read-write, never creates the file, and sets `PRAGMA query_only`. Apple's SQLite persists WAL
+  files by default, so the connection turns `SQLITE_FCNTL_PERSIST_WAL` off, or it would leave
+  `-wal`/`-shm` in `~/.task`. `SyncServer` probes as taskchamp does:
+  `GET <sync.server.url>/v1/client/get-child-version/<base>` with `X-Client-Id`. 200 means the
+  server is ahead, 404 means it isn't, anything else is unknown. No secret is needed, and other
+  backends get only the local side. Probes run after startup, on app activation (60 s debounce)
+  and every 15 min. They are silent, are skipped while a command runs, and drop an answer that a
+  sync overlapped (`syncGeneration`). The local count is re-read after every non-listing command.
+  Nothing syncs automatically. `@probe` in a script probes now. A stand-in server for testing
+  needs only those two status codes.
 - Only the text view, log pane and command field are forced dark; the list follows the system.
   `NSView`s in the dark area get `.darkAqua` explicitly because SwiftUI's colour scheme
   environment doesn't reach them.
@@ -192,8 +209,13 @@ Stage 2 is the structured view; the rest are candidates in rough priority order.
    context menu, hiding pinned badges; List/Raw toggle (⌘1/⌘2). The done checkbox was removed
    on trial (Space and the menu still mark done). Next: detail pane, grouping by project/due bucket, scheduled/wait hints.
 2. **Auto-sync** – debounced `task sync` a few seconds after any modification, plus periodic pull
-   (e.g. every 10 min and on app activation); spinner and last-sync time in the status line;
-   failures surface once, not on every retry.
+   (e.g. every 10 min and on app activation); failures surface once, not on every retry. The
+   status cloud (local/server changes, failed sync, spinner) exists; last-sync time doesn't.
+   Probe changes considered but not made (2026-10-22, pending more testing): probe on network
+   reconnect (taskchamp does, via a path monitor; here a sleep or dropped connection waits for
+   the next activation or timer probe), run the 15-min timer only while the app is in front
+   (it now runs in the background too, unlike taskchamp), and a shorter interval (with the app
+   left in front, a server change can go unnoticed for ~16 min).
 3. **In-place editing** – the description is done, with vi keys (`ViLineEditor`). Next: due /
    project the same way, maybe `v` (visual) mode. Decided against libvim for this:
    vimango_macos's libvim + NSTextView editor failed on caret/cursor sync

@@ -121,6 +121,16 @@ matches more tasks than your `bulk` setting (a `bulk` of 0 disables that, as
 in taskwarrior). `rc.allow.empty.filter=no` is always passed, so a bare
 `task delete` cannot touch every task.
 
+### Sync status
+
+When a sync backend is configured, a cloud in the status bar shows what `task sync`
+would do. An orange up arrow with a number means that many tasks have changes not yet synced. An orange down arrow
+means the server has changes from another machine (the iPhone, say). An exclamation mark means the
+last sync failed. Clicking the cloud runs `task sync`. Nothing syncs on its own. The server is checked
+when the app comes to the front (at most once a minute) and every 15 minutes. Only a
+`sync.server.url` server can be checked: it is asked for the version after yours, and nothing is
+downloaded into your data. The local count is read from `taskchampion.sqlite3`.
+
 ### Overrides the app applies
 
 Every invocation gets `rc.confirmation=off rc.allow.empty.filter=no

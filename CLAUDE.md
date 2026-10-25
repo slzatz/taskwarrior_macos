@@ -58,6 +58,9 @@ after modifications or when the window geometry changes. Views are thin.
   gets a minimal `PATH`.
 - An ambiguous abbreviation (`ne`) is a filter word to taskwarrior, not a command; the parser
   returns `command == nil` and the default command runs. Do not "fix" this.
+- With no command word, taskwarrior runs `information`, not the default command, when the
+  whole line is one number or uuid (`task 12`); `12 +x`, `1 2`, `1-3` and an added `rc.` word
+  get the default. `ParsedCommand.effectiveCommand` mirrors this (checked with `rc.debug.parser=1`).
 - Taskwarrior's default colour theme assumes a black terminal (row shading is colour 234), so the
   window is forced dark. A light theme needs a palette remap, not just a background change.
 - `edit` and `execute` need a tty and are refused. `task sync` is `synchronize` (category migration)

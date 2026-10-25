@@ -50,6 +50,22 @@ final class ParsedCommandTests: XCTestCase {
         XCTAssertEqual(p.effectiveCommand(in: catalog)?.name, "next")
     }
 
+    /// Checked against taskwarrior 3.5 with `rc.debug.parser=1`.
+    func testOneIdOrUUIDAloneShowsInformation() {
+        func command(_ line: String) -> String? {
+            ParsedCommand.parse(line, catalog: catalog).effectiveCommand(in: catalog)?.name
+        }
+        for line in ["1", "12", "0", "1.5", "1e3", "3796398a", "3796398A-53", "3796398a-",
+                     "3796398a-53e2-420a-9430-1266ca3ff474", "task 4"] {
+            XCTAssertEqual(command(line), "information", line)
+        }
+        for line in ["1 2", "1,2", "1-2", "01", "-1", "1 +x", "+x 1", "1 rc.color=off", "rc.color=off 1",
+                     "deadbee", "3796398a5", "0x1f", "3796398a-53e2-420a-9430-1266ca3ff474x"] {
+            XCTAssertEqual(command(line), "next", line)
+        }
+        XCTAssertEqual(command("1 done"), "done")
+    }
+
     func testFirstCommandWordWins() {
         let p = ParsedCommand.parse("add list the groceries", catalog: catalog)
         XCTAssertEqual(p.command?.name, "add")

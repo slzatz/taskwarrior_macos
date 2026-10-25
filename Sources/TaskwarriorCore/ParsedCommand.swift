@@ -49,8 +49,21 @@ public struct ParsedCommand: Sendable, Equatable {
         return ParsedCommand(tokens: tokens, commandIndex: nil, command: nil)
     }
 
-    /// The command that will actually run: the resolved one or taskwarrior's default.
+    /// The command that will actually run: the resolved one or taskwarrior's default, except
+    /// that taskwarrior runs `information` for a line of one id or uuid alone (`task 12`).
     public func effectiveCommand(in catalog: CommandCatalog) -> CommandInfo? {
-        command ?? catalog.resolvedDefault
+        if let command { return command }
+        if tokens.count == 1, Self.namesOneTask(tokens[0]) { return catalog.resolve("information") }
+        return catalog.resolvedDefault
+    }
+
+    /// What taskwarrior 3.5's lexer reads as a number or a uuid (whole or a prefix of at least
+    /// 8 characters). Anything else alone, `5,7`, `3-5`, two ids or an added `rc.` override
+    /// included, gets the default command.
+    static func namesOneTask(_ word: String) -> Bool {
+        if word.wholeMatch(of: #/(0|[1-9][0-9]*)(\.[0-9]*)?([eE][-+]?[0-9]+)?/#) != nil { return true }
+        let pattern = Array("xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx")
+        guard (8...pattern.count).contains(word.count) else { return false }
+        return zip(word, pattern).allSatisfy { char, slot in slot == "x" ? char.isHexDigit : char == slot }
     }
 }

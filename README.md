@@ -47,7 +47,9 @@ expanded, and no other program can be run from the field.
   The list's header is three menus, **report ▾ · context ▾ · project ▾**, followed by
   any other words of the typed filter. Each builds a command line and runs it as if
   typed (`task +ops project:work.infra all`), keeping the filter words the other menus
-  don't own. Picking a context runs `task context <name>`, which changes it for the
+  don't own. The **✕** after those words, or `clear` on the command line, runs the
+  listing again without them; the report, the project and any `rc.` overrides stay.
+  (Alone, `clear` is the app's; `clear next` still searches for "clear".) Picking a context runs `task context <name>`, which changes it for the
   command line too, and shows the listing again without the old project. The
   projects offered are those inside the context, nested by subproject; when there are
   none (a context on a project without subprojects) the project menu is left out.
@@ -104,6 +106,7 @@ so custom reports and aliases are recognised automatically. The rules live in
 |-----------------------------------------------------|------------------------------------------------------------------|
 | report, graphs (`next`, `list`, `calendar`, ...)     | Output replaces the display and becomes the *current view*.      |
 | filter only (`project:work`)                        | Runs the default command with that filter; same as a report.     |
+| one id or uuid alone (`12`)                         | Runs `information`, as taskwarrior does (`1 2` is a filter).     |
 | `information`, `projects`, `tags`, `stats`           | Shown in the display but not remembered as the current view.     |
 | operation (`add`, `done`, `modify`, `undo`, ...), `sync`, `import` | Output goes to the output pane, then the current view is re-run. |
 | `context`, `config`, `show`, `export`, `help`, ...  | Output goes to the output pane; the display is left alone.       |

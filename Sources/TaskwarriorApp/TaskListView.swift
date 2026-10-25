@@ -117,7 +117,7 @@ struct TaskListView: View {
         .background(ListPalette.background)
     }
 
-    /// Report ▾ · context ▾ · project ▾, then the rest of the typed filter and the count.
+    /// Report ▾ · context ▾ · project ▾, then the rest of the typed filter with its ✕, and the count.
     /// The menus run a new command line through the model, like a typed one.
     private var header: some View {
         HStack(spacing: 6) {
@@ -136,6 +136,13 @@ struct TaskListView: View {
                     Text(listing.filterText)
                         .font(.system(size: fontSize, weight: .semibold))
                         .truncationMode(.middle)
+                    Button { model.clearFilter() } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: fontSize - 1))
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.borderless)
+                    .help("Clear the filter (clear); the report and project stay")
                 }
             }
             Text(tasks.count == 1 ? "1 task" : "\(tasks.count) tasks")

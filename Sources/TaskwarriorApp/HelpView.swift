@@ -31,6 +31,7 @@ struct HelpSection: Identifiable {
             .init(keys: "Esc", summary: "Clear the line and go back to the list"),
             .init(keys: "↑ / ↓", summary: "Walk the history (: then ↑ repeats or fixes the last line)"),
             .init(keys: "help,  h,  ?", summary: "This help; type task help for taskwarrior's own"),
+            .init(keys: "clear", summary: "Drop the typed filter (also the ✕ after it in the header); the report and project stay"),
             .init(keys: "Where you land", summary: "On the task a command named (5 done, 3 modify …), or the row that took its place; on the new task after add; on the first row of a new listing; otherwise where you were"),
         ]),
         HelpSection(title: "Description editor", entries: [

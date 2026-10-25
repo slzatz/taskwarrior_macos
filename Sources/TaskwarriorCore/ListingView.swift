@@ -43,6 +43,14 @@ public struct ListingView: Equatable, Sendable {
         otherWords.filter { !$0.hasPrefix("rc.") && !$0.hasPrefix("rc:") }.joined(separator: " ")
     }
 
+    /// The listing without what `filterText` shows (`clear`, or the header's ✕): the report, the
+    /// project and the overrides stay.
+    public var cleared: ListingView {
+        var copy = self
+        copy.otherWords = otherWords.filter { $0.hasPrefix("rc.") || $0.hasPrefix("rc:") }
+        return copy
+    }
+
     public func with(report: String) -> ListingView {
         var copy = self
         copy.report = report

@@ -109,6 +109,8 @@ final class DisplayPolicyTests: XCTestCase {
         XCTAssertNil(AppCommand(line: "task help"))
         XCTAssertNil(AppCommand(line: "help me"))
         XCTAssertNil(AppCommand(line: "Help"))
+        XCTAssertEqual(AppCommand(line: " clear "), .clear)
+        XCTAssertNil(AppCommand(line: "clear next"))
     }
 
     func testHeight() {
@@ -348,6 +350,16 @@ final class ListingViewTests: XCTestCase {
         XCTAssertEqual(view.with(report: "ready").tokens, ["+finance", "project:work", "ready"])
         XCTAssertEqual(view.with(project: "home").tokens, ["+finance", "project:home", "next"])
         XCTAssertEqual(view.with(project: nil).tokens, ["+finance", "next"])
+    }
+
+    func testClearKeepsReportProjectAndOverrides() {
+        let view = ListingView(report: "list", words: ["+finance", "milk", "pro:work", "rc.verbose=0"])
+        XCTAssertEqual(view.cleared.tokens, ["rc.verbose=0", "project:work", "list"])
+        XCTAssertEqual(view.cleared.filterText, "")
+        // Other project terms are shown as filter text, so they go too.
+        XCTAssertEqual(ListingView(report: "next", words: ["project.not:fact", "+x"]).cleared.tokens, ["next"])
+        let grouped = ListingView(report: "next", words: ["(project:a", "or", "+x)", "rc.context=none"])
+        XCTAssertEqual(grouped.cleared.tokens, ["rc.context=none", "next"])
     }
 
     func testOtherProjectTermsAreReplacedWhenPicking() {

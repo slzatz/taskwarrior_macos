@@ -136,7 +136,8 @@ after modifications or when the window geometry changes. Views are thin.
   (j/k, Space, g/G too).
 - **The help sheet (`HelpView.swift`) is a hand-written table, `HelpSection.all`.** A new key
   or a changed one goes there too; nothing checks it against the code. `help` / `h` / `?` on the
-  command line are the app's (`AppCommand`, intercepted at the top of `run(line:)`); `task help`
+  command line are the app's (`AppCommand`, intercepted at the top of `run(line:)`), as is
+  `clear` (`clearFilter`, also the header's ✕: `currentView` again via `ListingView.cleared`); `task help`
   typed in full is taskwarrior's, shown as a one-off in the raw view. The sheet scrolls with
   vimango_hybrid's `SheetKeyScroller` (a key monitor scoped to the sheet's window). A bitmap of
   the sheet's window comes out blank, so the scripted snapshot draws `HelpContent` instead.

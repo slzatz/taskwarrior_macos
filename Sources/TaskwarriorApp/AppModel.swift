@@ -258,9 +258,15 @@ final class AppModel {
     }
 
     func run(line: String) {
-        if AppCommand(line: line) == .help {
+        switch AppCommand(line: line) {
+        case .help:
             helpOpen = true
             return
+        case .clear:
+            clearFilter()
+            return
+        case nil:
+            break
         }
         guard runner != nil else {
             appendLog(command: line, text: "taskwarrior is not available.", isError: true)
@@ -350,6 +356,15 @@ final class AppModel {
         run(line: "context \(name)")
         guard let listing else { return }
         run(listing: listing.with(project: nil))
+    }
+
+    /// Runs the current view again without its typed filter (`clear`, the header's ✕); the
+    /// report, project and overrides stay. Built from `currentView`, so it works in the raw view too.
+    func clearFilter() {
+        guard let view = currentView else { return }
+        // The command word as typed, so an alias keeps its expansion.
+        guard let report = view.commandIndex.map({ view.tokens[$0] }) ?? view.effectiveCommand(in: catalog)?.name else { return }
+        run(listing: ListingView(report: report, words: view.filter + view.arguments).cleared)
     }
 
     private func run(listing: ListingView) {

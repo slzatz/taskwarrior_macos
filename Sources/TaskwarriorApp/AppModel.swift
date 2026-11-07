@@ -407,11 +407,19 @@ final class AppModel {
     /// Opens (or has vimango create) the task's note via `vimango://task-note`, as taskchamp's
     /// note button does. The `vimango` annotation is added only once the URL has been taken, and
     /// only if the task doesn't carry it yet, through `perform` like any other row action.
+    /// Activation is yielded to the handler first: under macOS 14's cooperative activation,
+    /// vimango otherwise got the menu bar while its window stayed behind this one.
     func openVimangoNote(for task: TaskItem) {
         guard let url = task.vimangoNoteURL else { return }
+        if let handler = NSWorkspace.shared.urlForApplication(toOpen: url),
+           let bundleID = Bundle(url: handler)?.bundleIdentifier {
+            NSApp.yieldActivation(toApplicationWithBundleIdentifier: bundleID)
+        }
         Task {
             do {
-                _ = try await NSWorkspace.shared.open(url, configuration: NSWorkspace.OpenConfiguration())
+                let configuration = NSWorkspace.OpenConfiguration()
+                configuration.activates = true
+                _ = try await NSWorkspace.shared.open(url, configuration: configuration)
             } catch {
                 appendLog(command: "vimango note", text: "Can't open vimango: \(error.localizedDescription)\nRun vimango_hybrid once so macOS knows it opens vimango:// links.", isError: true)
                 return

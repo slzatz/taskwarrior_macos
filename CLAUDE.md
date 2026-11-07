@@ -145,7 +145,10 @@ after modifications or when the window geometry changes. Views are thin.
   (`TaskwarriorCore/VimangoLink.swift`). "Open/Create vimango Note" (row menu, or a click on the
   indigo icon) opens `vimango://task-note?uuid=&title=&project=`. vimango_hybrid finds the note
   whose `taskwarrior_uuid` column holds the uuid, or creates it (the link moved out of the note's
-  frontmatter on 2026-10-16; `~/vimango/docs/taskwarrior-link-column.md`). The task's `vimango`
+  frontmatter on 2026-10-16; `~/vimango/docs/taskwarrior-link-column.md`), and lists it alone
+  in its preview (a transient filter that `:o -` leaves; mid-edit it opens in a peek window).
+  `openVimangoNote` yields activation to the URL's handler first: without that, macOS 14+
+  gave vimango the menu bar and left its window behind. The task's `vimango`
   annotation is added only after the URL has been accepted, and only once, through `perform`. The
   app claims `taskchampdev` (Info.plist) so `taskchampdev://task/<uuid>`, which hybrid's
   `:task` / File > Open Task sends, shows the task here. `task/new` (creating a task from a note)

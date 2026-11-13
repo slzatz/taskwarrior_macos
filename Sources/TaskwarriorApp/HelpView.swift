@@ -29,6 +29,7 @@ struct HelpSection: Identifiable {
         HelpSection(title: "Command line", entries: [
             .init(keys: "Return", summary: "Run the line and go back to the list, whatever ran"),
             .init(keys: "Esc", summary: "Clear the line and go back to the list"),
+            .init(keys: "Backspace", summary: "On an empty line, go back to the list; the leading : is a prompt, not sent"),
             .init(keys: "↑ / ↓", summary: "Walk the history (: then ↑ repeats or fixes the last line)"),
             .init(keys: "help,  h,  ?", summary: "This help; type task help for taskwarrior's own"),
             .init(keys: "clear", summary: "Drop the typed filter (also the ✕ after it in the header); the report and project stay"),

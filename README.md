@@ -59,7 +59,9 @@ expanded, and no other program can be run from the field.
   **Return** shows `information` (**Esc** there goes back to the list, on the same task);
   right-click also has start/stop, delete and Copy UUID.
   **:** moves to the command line (from the raw view too). As with vim's `:` line, you go
-  back to the list from it either way: **Return** runs the line, **Esc** drops it.
+  back to the list from it either way: **Return** runs the line, **Esc** drops it, and
+  **Backspace** on an empty line leaves too. The line starts with a `:` while you edit it,
+  as vim's does; it is a prompt, never sent to taskwarrior (nor are extra ones you type).
   A command that acts on tasks typed without a filter acts on the selected one, as an ex
   command does on vim's current line: `:done`, `:modify due:fri +home`, `:annotate …`,
   `:start`, `:delete` (also `append`, `prepend`, `denotate`, `duplicate`, `info`, `purge`).

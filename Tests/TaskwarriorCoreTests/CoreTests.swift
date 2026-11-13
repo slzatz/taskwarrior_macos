@@ -479,3 +479,19 @@ final class SelectionTargetTests: XCTestCase {
         }
     }
 }
+
+final class CommandPromptTests: XCTestCase {
+    func testPromptIsStrippedFromTheLine() {
+        XCTAssertEqual(CommandPrompt.line(fromField: ":next"), "next")
+        XCTAssertEqual(CommandPrompt.line(fromField: "::5 done"), "5 done")
+        XCTAssertEqual(CommandPrompt.line(fromField: ":"), "")
+        XCTAssertEqual(CommandPrompt.line(fromField: "next"), "next")
+        // Only leading colons: taskwarrior's own stay.
+        XCTAssertEqual(CommandPrompt.line(fromField: ":modify due:fri"), "modify due:fri")
+    }
+
+    func testFieldShowsThePrompt() {
+        XCTAssertEqual(CommandPrompt.field(for: ""), ":")
+        XCTAssertEqual(CommandPrompt.line(fromField: CommandPrompt.field(for: "add x")), "add x")
+    }
+}

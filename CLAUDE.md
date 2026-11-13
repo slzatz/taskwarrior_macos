@@ -122,9 +122,9 @@ after modifications or when the window geometry changes. Views are thin.
   always enough), and on Return / Esc makes the enclosing `NSTableView` first responder
   before the field is removed. `TASKWARRIOR_APP_DUMP` prints the first responder.
 - **The command line is visited, like vim's `:` line.** `:` (list, text view, row editor)
-  goes there; Return (`submit`, even for an empty line or a failing command) and Esc both
-  call `focusDisplay()`, at once, so keys typed during a slow `sync` reach the list. The app
-  starts in the list. The selection is the model's (`selectedUUID`, kept while text is shown):
+  goes there; Return (`submit`, even for an empty line or a failing command), Esc and
+  Backspace on an empty line all call `focusDisplay()`, at once, so keys typed during a slow
+  `sync` reach the list. The app starts in the list. The selection is the model's (`selectedUUID`, kept while text is shown):
   `ListLanding.intent` is worked out from the typed line against the last listed tasks
   (`listed`) and `resolve`d in `showList`; keep landing rules there, with a test. Focus is
   moved by `DisplayFocus` (AppKit, the same `@FocusState` trap as above): a request always
@@ -134,6 +134,12 @@ after modifications or when the window geometry changes. Views are thin.
   (`displayIsTransient`, i.e. `information`) for the current view. A read-only `NSTextView`
   doesn't scroll for arrows or Page Down, so `TerminalNSTextView` scrolls its clip view itself
   (j/k, Space, g/G too).
+- **The command line's leading `:` is real text in the field, not in the model.** `CommandField`
+  adds it on focus (`PromptField.becomeFirstResponder`, so clicks get it too) and drops it on
+  end of editing; `commandText` and history never hold it (`CommandPrompt.line(fromField:)`
+  strips all leading colons). The caret is clamped after it by watching the shared field
+  editor's selection notifications, and a change that removed it puts it back. NSTextField
+  implements the text-view delegate methods privately, so don't override them in the subclass.
 - **The help sheet (`HelpView.swift`) is a hand-written table, `HelpSection.all`.** A new key
   or a changed one goes there too; nothing checks it against the code. `help` / `h` / `?` on the
   command line are the app's (`AppCommand`, intercepted at the top of `run(line:)`), as is

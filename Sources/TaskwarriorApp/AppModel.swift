@@ -181,8 +181,12 @@ final class AppModel {
         }
         // The initial view is whatever `task` alone shows (the user's default.command).
         enqueue(ParsedCommand.parse("", catalog: catalog), action: .replaceDisplay(remember: true))
-        // The keyboard starts in the list, on its first task.
-        enqueueWork { [weak self] in self?.focusDisplay() }
+        // The keyboard starts in the list, on its first task, unless a `:` typed while the
+        // first listing ran has gone to the command line: taking focus then would drop it.
+        enqueueWork { [weak self] in
+            guard let self, focusRequest == 0 else { return }
+            focusDisplay()
+        }
         let queued = pendingURLs
         pendingURLs = []
         queued.forEach(handle(url:))

@@ -158,7 +158,10 @@ after modifications or when the window geometry changes. Views are thin.
   annotation is added only after the URL has been accepted, and only once, through `perform`. The
   app claims `taskchampdev` (Info.plist) so `taskchampdev://task/<uuid>`, which hybrid's
   `:task` / File > Open Task sends, shows the task here. `task/new` (creating a task from a note)
-  isn't handled yet, since `task add` can't set a uuid (`task import` can).
+  isn't handled yet, since `task add` can't set a uuid (`task import` can). A note and a task
+  that both exist already are linked from vimango_hybrid: Copy UUID in the row menu, then
+  `:linktask` on the note (it reads the pasteboard). The task's `vimango` annotation is added
+  the first time the note is opened from here.
 - **The sync cloud (`SyncButton`, `SyncState`) is the one place the app reads taskchampion's
   database instead of the CLI**, since no command gives the base version and `task stats` counts
   operations, not tasks. `ReplicaReader` runs two queries in one transaction on
@@ -247,4 +250,5 @@ Stage 2 is the structured view; the rest are candidates in rough priority order.
 10. **Undo affordance** – after done/delete, a transient "Undo" button in the status line.
 11. **Task from a vimango note** – handle `taskchampdev://task/new?uuid=&title=&project=` with
     `task import` of a one-task JSON file (check the uuid doesn't exist first), and give
-    vimango_hybrid a command that links the note (`Repository.linkTask`, a metadata write).
+    vimango_hybrid a way to link the note to the new task (`Repository.linkTask`; `:linktask`
+    already does it by hand).

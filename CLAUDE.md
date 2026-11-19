@@ -159,9 +159,11 @@ after modifications or when the window geometry changes. Views are thin.
   app claims `taskchampdev` (Info.plist) so `taskchampdev://task/<uuid>`, which hybrid's
   `:task` / File > Open Task sends, shows the task here. `task/new` (creating a task from a note)
   isn't handled yet, since `task add` can't set a uuid (`task import` can). A note and a task
-  that both exist already are linked from vimango_hybrid: Copy UUID in the row menu, then
-  `:linktask` on the note (it reads the pasteboard). The task's `vimango` annotation is added
-  the first time the note is opened from here.
+  that both exist already are linked from vimango_hybrid: Copy UUID to Link Note in the row
+  menu, then `:linktask` on the note (it reads the pasteboard). That menu item adds the
+  `vimango` annotation itself (`copyUUIDToLinkNote`), so the apps never talk about the link;
+  if it never happens, "Open vimango Note" just creates the note. Plain Copy UUID annotates
+  nothing, since a uuid is copied for other reasons too.
 - **The sync cloud (`SyncButton`, `SyncState`) is the one place the app reads taskchampion's
   database instead of the CLI**, since no command gives the base version and `task stats` counts
   operations, not tasks. `ReplicaReader` runs two queries in one transaction on

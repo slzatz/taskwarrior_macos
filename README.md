@@ -57,7 +57,9 @@ expanded, and no other program can be run from the field.
   starts with the list focused on its first task. Select
   a row (arrows, or **j** / **k**) and press **Space** (or right-click → Done) to mark it done; double-click or
   **Return** shows `information` (**Esc** there goes back to the list, on the same task);
-  right-click also has start/stop, delete and Copy UUID.
+  right-click also has start/stop, delete and Copy UUID. To link a task to a vimango note that
+  already exists, pick **Copy UUID to Link Note** (it also marks the task as having a note), then
+  run `:linktask` on the note in vimango_hybrid.
   **:** moves to the command line (from the raw view too). As with vim's `:` line, you go
   back to the list from it either way: **Return** runs the line, **Esc** drops it, and
   **Backspace** on an empty line leaves too. The line starts with a `:` while you edit it,

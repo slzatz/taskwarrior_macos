@@ -24,7 +24,7 @@ struct HelpSection: Identifiable {
             .init(keys: "e", summary: "Edit its description in the row, with vi keys (below)"),
             .init(keys: ":", summary: "Go to the command line"),
             .init(keys: "?", summary: "This help"),
-            .init(keys: "Right-click", summary: "Done, Start/Stop, Show Info, Edit Description, vimango note, Copy UUID, Delete"),
+            .init(keys: "Right-click", summary: "Done, Start/Stop, Show Info, Edit Description, vimango note, Copy UUID, Copy UUID to Link Note (for vimango's :linktask; marks the task as having a note), Delete"),
         ]),
         HelpSection(title: "Command line", entries: [
             .init(keys: "Return", summary: "Run the line and go back to the list, whatever ran"),

@@ -248,6 +248,9 @@ struct TaskListView: View {
             NSPasteboard.general.setString(task.uuid, forType: .string)
         }
         if !task.isDeleted {
+            Button("Copy UUID to Link Note") { model.copyUUIDToLinkNote(for: task) }
+        }
+        if !task.isDeleted {
             Divider()
             Button("Delete…", role: .destructive) { model.perform("delete", on: task) }
         }

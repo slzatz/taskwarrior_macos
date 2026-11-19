@@ -434,6 +434,18 @@ final class AppModel {
         }
     }
 
+    /// "Copy UUID to Link Note": the uuid on the pasteboard for vimango_hybrid's `:linktask`, and
+    /// the task's `vimango` annotation added now, so the apps never have to talk about the link.
+    /// The annotation is only a label: if the link never happens, "Open vimango Note" creates
+    /// the note, as "Create" would. Plain Copy UUID stays free of side effects.
+    func copyUUIDToLinkNote(for task: TaskItem) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(task.uuid, forType: .string)
+        if !task.hasVimangoNote {
+            perform("annotate \(TaskItem.vimangoNoteAnnotation)", on: task)
+        }
+    }
+
     /// Handles a link opened from outside, e.g. `taskchampdev://task/<uuid>` from vimango_hybrid's Open Task.
     func handle(url: URL) {
         guard runner != nil else {
